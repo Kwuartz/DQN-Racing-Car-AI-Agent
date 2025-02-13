@@ -1,5 +1,4 @@
 import pygame
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT
 from classes import Car
 
 pygame.init()
@@ -16,34 +15,34 @@ playerCar = Car(300, 300, 0, blueCar)
 deltaTime = 1 / FPS
 
 running = True
+cameraOffset = pygame.Vector2(0, 0)
 
 while running:
-  for event in pygame.event.get():
-    if event.type == pygame.QUIT:
-      running = False
-  
-  acceleration = 0
-  turnDirection = 0
-  keys = pygame.key.get_pressed()
-  if keys[pygame.K_w]:
-    acceleration += 1
-  if keys[pygame.K_s]:
-    print("hi")
-    acceleration += -1
-  
-  if keys[pygame.K_d]:
-    turnDirection += 1
-  if keys[pygame.K_a]:
-    turnDirection += -1
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
 
-  playerCar.update(deltaTime, acceleration, turnDirection)
+    acceleration = 0
+    turnDirection = 0
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_w]:
+        acceleration += 1
+    if keys[pygame.K_s]:
+        acceleration += -1
 
-  screen.fill((0, 0, 0))
-  playerCar.draw(screen)
+    if keys[pygame.K_d]:
+        turnDirection += 1
+    if keys[pygame.K_a]:
+        turnDirection += -1
 
-  # Update the display
-  pygame.display.flip()
+    playerCar.update(deltaTime, acceleration, turnDirection)
 
-  deltaTime = clock.tick(FPS) / 1000
+    screen.fill((0, 0, 0))
+    playerCar.draw(screen)
+
+    # Update the display
+    pygame.display.flip()
+
+    deltaTime = clock.tick(FPS) / 1000
 
 pygame.quit()
