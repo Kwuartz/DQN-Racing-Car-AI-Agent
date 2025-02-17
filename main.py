@@ -1,19 +1,21 @@
 from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK, CAMERA_SCROLL_SPEED, TRACK_WIDTH, TRACK_HEIGHT
 import pygame
 import random
+import json
 import math
+
+pygame.init()
+
+font16 = pygame.font.Font("Assets/Fonts/font.otf", 16)
+font128 = pygame.font.Font("Assets/Fonts/font.otf", 128)
+
+blueCarImage = pygame.image.load("Assets/Cars/BlueCar.png")
+redCarImage = pygame.image.load("Assets/Cars/RedCar.png")
 
 class Game:
     def __init__(self):
-        pygame.init()
-        
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Racing Game")
-        
-        self.font16 = pygame.font.Font("Assets/Fonts/font16.otf", 16)
-        self.blueCarImage = pygame.image.load("Assets/Cars/BlueCar.png")
-        self.redCarImage = pygame.image.load("Assets/Cars/RedCar.png")
-        self.trackImage = pygame.image.load(f"Assets/Tracks/{TRACK}/image.png").convert_alpha()
 
         self.running = True
         self.clock = pygame.time.Clock()
@@ -22,10 +24,10 @@ class Game:
         self.displayMainMenu()
 
     def displayMainMenu(self):
-        self.playButton = Button(0.1, 0.2, 0.2, 0.1, "Play", self.font16, (255, 255, 255), (255, 255, 255), 5)
-        self.trackButton = Button(0.1, 0.35, 0.2, 0.1, "Create Track", self.font16, (255, 255, 255), (255, 255, 255), 5)
-        self.trainButton = Button(0.1, 0.5, 0.2, 0.1, "Train an Agent", self.font16, (255, 255, 255), (255, 255, 255), 5)
-        self.exitButton = Button(0.1, 0.65, 0.2, 0.1, "Exit", self.font16, (255, 255, 255), (255, 255, 255), 5)
+        self.playButton = Button(0.1, 0.2, 0.2, 0.1, "Play", font16, (255, 255, 255), (255, 255, 255), 5)
+        self.trackButton = Button(0.1, 0.35, 0.2, 0.1, "Create Track", font16, (255, 255, 255), (255, 255, 255), 5)
+        self.trainButton = Button(0.1, 0.5, 0.2, 0.1, "Train an Agent", font16, (255, 255, 255), (255, 255, 255), 5)
+        self.exitButton = Button(0.1, 0.65, 0.2, 0.1, "Exit", font16, (255, 255, 255), (255, 255, 255), 5)
 
         while self.running:
             for event in pygame.event.get():
@@ -68,6 +70,8 @@ class Game:
         editorRunning = True
         
         while self.running and editorRunning:
+            updateGraphics = False
+
             mousePosition = pygame.mouse.get_pos()
             scaledMousePosition = (mousePosition[0] * zoom, mousePosition[1] * zoom)
 
@@ -84,21 +88,28 @@ class Game:
                                 selectedPoint = hoveredPoint
                             else:
                                 self.track.addPoint(scaledMousePosition)
+                                updateGraphics = True
 
                     elif event.button == 3:
                         if (hoveredPoint := self.track.getHoveredPoint(scaledMousePosition)) is not None:
                             self.track.removePoint(hoveredPoint)
+                        else:
+                            self.track.removePoint()
+
+                        updateGraphics = True
 
             if selectedPoint is not None:
                 self.track.movePoint(selectedPoint, scaledMousePosition)
+                updateGraphics = True
             
-            trackSurface.fill((8, 132, 28))
-            self.track.drawEditor(trackSurface)
+            if updateGraphics:
+                trackSurface.fill((8, 132, 28))
+                self.track.drawEditor(trackSurface)
 
-            scaledTrackSurface = pygame.transform.scale(trackSurface, (SCREEN_WIDTH, SCREEN_HEIGHT))
-            self.screen.blit(scaledTrackSurface, (0, 0))
+                scaledTrackSurface = pygame.transform.scale(trackSurface, (SCREEN_WIDTH, SCREEN_HEIGHT))
+                self.screen.blit(scaledTrackSurface, (0, 0))
 
-            pygame.display.flip()
+                pygame.display.flip()
 
             self.deltaTime = self.clock.tick(FPS) / 1000
 
@@ -106,8 +117,8 @@ class Game:
         pass
 
     def gameLoop(self):
-        self.playerCar = Car(1000, 1000, 0, self.blueCarImage)
-        self.agentCar = CarAgent(300, 300, 0, self.redCarImage)
+        self.playerCar = Car(1000, 1000, 0, blueCarImage)
+        self.agentCar = CarAgent(300, 300, 0, redCarImage)
 
         self.cameraOffset = pygame.Vector2(0, 0)
 
@@ -256,13 +267,24 @@ class CarAgent(Car):
         super().update(deltaTime, random.randint(-1, 1), 1, track)
 
 class Track:
-    def __init__(self, points=[]):
-        self.points = points
+    def __init__(self, filePath = None):
+        if filePath:
+            self.importTrack(filePath)
+        else:
+            self.points = []
+
+            self.trackWidth = 200
+            self.trackColour = (50, 50, 50)
 
         self.pointRadius = 25
-        self.lineThickness = 10
         self.pointColour = (255, 0, 0)
+
+        self.pointLabelOffset = pygame.Vector2(10, 10)
+        self.pointLabelColour = (0, 0, 0)
+
+        self.lineThickness = 10
         self.lineColour = (0, 0, 0)
+        self.connectingLineColour = (255, 255, 255)
 
     def addPoint(self, pos):
         self.points.append(pos)
@@ -270,8 +292,9 @@ class Track:
     def movePoint(self, index, newPosition):
         self.points[index] = newPosition
 
-    def removePoint(self, index):
-        self.points.pop(index)
+    def removePoint(self, index=-1):
+        if len(self.points) > 0:
+            self.points.pop(index)
 
     def getPoints(self):
         return self.points
@@ -291,29 +314,76 @@ class Track:
 
     def getCurve(self, points, n=20):
         curve = []
+
+        distance = math.dist(points[1], points[2])
+        if distance > 1000:
+            n = int(distance / 50)
+
         for i in range(n + 1):
             t = i / n
 
-            x = ((1 - t)**3 * points[0][0]) + (3 * (1 - t)**2 * t * points[1][0]) + (2 * (1 - t) * t**2 * points[2][0]) + (t**3 * points[3][0])
-            y = ((1 - t)**3 * points[0][1]) + (3 * (1 - t)**2 * t * points[1][1]) + (2 * (1 - t) * t**2 * points[2][1]) + (t**3 * points[3][1])
+            x = 0.5 * (
+                (2 * points[1][0]) +
+                (-points[0][0] + points[2][0]) * t +
+                (2 * points[0][0] - 5 * points[1][0] + 4 * points[2][0] - points[3][0]) * t**2 +
+                (-points[0][0] + 3 * points[1][0] - 3 * points[2][0] + points[3][0]) * t**3
+            )
+
+            y = 0.5 * (
+                (2 * points[1][1]) +
+                (-points[0][1] + points[2][1]) * t +
+                (2 * points[0][1] - 5 * points[1][1] + 4 * points[2][1] - points[3][1]) * t**2 +
+                (-points[0][1] + 3 * points[1][1] - 3 * points[2][1] + points[3][1]) * t**3
+            )
 
             curve.append((x, y))
-        
+
         return curve
 
     def drawEditor(self, screen):
         if len(self.points) > 3:
-            for i in range(0, len(self.points) - 3, 3):
-                curvePoints = self.points[i:i+4]
-                if i + 4 < len(self.points):
-                    curvePoints[2] = self.points[i+4]
+            curves = []
 
-                curve = self.getCurve(curvePoints)
-                pygame.draw.lines(screen, self.lineColour, False, curve, self.lineThickness)
+            for i in range(len(self.points) - 3):
+                curves.append(self.getCurve(self.points[i:i + 4]))
+
+            for i in range(3):
+                curves.append(self.getCurve(self.points[i-3:] + self.points[:i+1]))
+
+            for curve in curves:
+                for point in curve:
+                    pygame.draw.circle(screen, self.trackColour, point, self.trackWidth)
+
+            for i, curve in enumerate(curves):
+                for point in curve:
+                    if i == len(curves) - 2:
+                        pygame.draw.lines(screen, self.connectingLineColour, False, curve, self.lineThickness)
+                    else:
+                        pygame.draw.lines(screen, self.lineColour, False, curve, self.lineThickness)
         
-        for point in self.points:
+        for i, point in enumerate(self.points):
+            pointLabel = font128.render(f"P{i}", True, self.pointLabelColour)
+            
             pygame.draw.circle(screen, self.pointColour, point, self.pointRadius)
+            screen.blit(pointLabel, point + self.pointLabelOffset)
+    
+    def exportTrack(self, filePath):
+        output = {
+            "Points": self.points,
+            "TrackWidth": self.trackWidth,
+            "TrackColour": self.trackColour
+        }
+        
+        with open(f"{filePath}.json", "w") as file:
+            json.dump(output, file)
 
+    def importTrack(self, filePath):
+        with open(f"{filePath}.json", "r") as file:
+            data = json.load(file)
+
+            self.points = data["Points"]
+            self.trackWidth = data["TrackWidth"]
+            self.trackColour = data["TrackColour"]
 
 class ImageTrack:
     def __init__(self, image):
@@ -333,8 +403,8 @@ class ImageTrack:
         screen.blit(self.image, (self.rect.topleft - cameraOffset, (self.rect.width, self.rect.height)))
 
 class Button:
-    def __init__(self, x, y, width, height, text, font, textColor, bgColour, rectThickness = 0):
-        self.text = font.render(text, True, textColor)
+    def __init__(self, x, y, width, height, text, font, textColour, bgColour, rectThickness = 0):
+        self.text = font.render(text, True, textColour)
         self.rect = pygame.Rect(0, 0, SCREEN_WIDTH * width, SCREEN_HEIGHT * height)
         self.rect.center = (SCREEN_WIDTH * x, SCREEN_HEIGHT * y)
         self.rectThickness = rectThickness
