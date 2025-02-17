@@ -1,4 +1,4 @@
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK, CAMERA_SCROLL_SPEED
+from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK, CAMERA_SCROLL_SPEED, TRACK_WIDTH, TRACK_HEIGHT
 import pygame
 import random
 import math
@@ -13,22 +13,19 @@ class Game:
         self.font16 = pygame.font.Font("Assets/Fonts/font16.otf", 16)
         self.blueCarImage = pygame.image.load("Assets/Cars/BlueCar.png")
         self.redCarImage = pygame.image.load("Assets/Cars/RedCar.png")
-        self.trackImage = pygame.image.load(f"Assets/Tracks/{TRACK}.png").convert_alpha()
+        self.trackImage = pygame.image.load(f"Assets/Tracks/{TRACK}/image.png").convert_alpha()
 
-        self.track = Track(self.trackImage)
-        self.track.invertMask()
-        
-        self.training = False
         self.running = True
+        self.clock = pygame.time.Clock()
+        self.deltaTime = 1 / FPS
 
         self.displayMainMenu()
 
     def displayMainMenu(self):
-        self.clock = pygame.time.Clock()
-        self.deltaTime = 1 / FPS
         self.playButton = Button(0.1, 0.2, 0.2, 0.1, "Play", self.font16, (255, 255, 255), (255, 255, 255), 5)
-        self.trainButton = Button(0.1, 0.35, 0.2, 0.1, "Train", self.font16, (255, 255, 255), (255, 255, 255), 5)
-        self.exitButton = Button(0.1, 0.5, 0.2, 0.1, "Exit", self.font16, (255, 255, 255), (255, 255, 255), 5)
+        self.trackButton = Button(0.1, 0.35, 0.2, 0.1, "Create Track", self.font16, (255, 255, 255), (255, 255, 255), 5)
+        self.trainButton = Button(0.1, 0.5, 0.2, 0.1, "Train an Agent", self.font16, (255, 255, 255), (255, 255, 255), 5)
+        self.exitButton = Button(0.1, 0.65, 0.2, 0.1, "Exit", self.font16, (255, 255, 255), (255, 255, 255), 5)
 
         while self.running:
             for event in pygame.event.get():
@@ -37,25 +34,90 @@ class Game:
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if self.playButton.checkHovered(pygame.mouse.get_pos()):
+                        self.track = ImageTrack(self.trackImage)
+                        self.track.invertMask()
                         self.gameLoop()
+
+                    elif self.trackButton.checkHovered(pygame.mouse.get_pos()):
+                        self.trackEditor()
+
                     elif self.trainButton.checkHovered(pygame.mouse.get_pos()):
-                        self.training = True
                         pass
+
                     elif self.exitButton.checkHovered(pygame.mouse.get_pos()):
                         self.running = False
             
             self.screen.fill((8, 132, 28))
 
             self.playButton.draw(self.screen)
+            self.trackButton.draw(self.screen)
             self.trainButton.draw(self.screen)
             self.exitButton.draw(self.screen)
 
             pygame.display.flip()
 
             self.deltaTime = self.clock.tick(FPS) / 1000
+    
+    def trackEditor(self):
+        self.track = Track()
+
+        zoom = int(TRACK_WIDTH / SCREEN_WIDTH)
+        trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT))
+        selectedPoint = None
+
+        editorRunning = True
         
-    def update(self):
-        if not self.training:
+        while self.running and editorRunning:
+            mousePosition = pygame.mouse.get_pos()
+            scaledMousePosition = (mousePosition[0] * zoom, mousePosition[1] * zoom)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        if selectedPoint is not None:
+                            selectedPoint = None
+                        else:
+                            if (hoveredPoint := self.track.getHoveredPoint(scaledMousePosition)) is not None:
+                                selectedPoint = hoveredPoint
+                            else:
+                                self.track.addPoint(scaledMousePosition)
+
+                    elif event.button == 3:
+                        if (hoveredPoint := self.track.getHoveredPoint(scaledMousePosition)) is not None:
+                            self.track.removePoint(hoveredPoint)
+
+            if selectedPoint is not None:
+                self.track.movePoint(selectedPoint, scaledMousePosition)
+            
+            trackSurface.fill((8, 132, 28))
+            self.track.drawEditor(trackSurface)
+
+            scaledTrackSurface = pygame.transform.scale(trackSurface, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.screen.blit(scaledTrackSurface, (0, 0))
+
+            pygame.display.flip()
+
+            self.deltaTime = self.clock.tick(FPS) / 1000
+
+    def training(self):
+        pass
+
+    def gameLoop(self):
+        self.playerCar = Car(1000, 1000, 0, self.blueCarImage)
+        self.agentCar = CarAgent(300, 300, 0, self.redCarImage)
+
+        self.cameraOffset = pygame.Vector2(0, 0)
+
+        gameRunning = True
+
+        while self.running and gameRunning:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+
             acceleration = 0
             turnDirection = 0
 
@@ -70,55 +132,30 @@ class Game:
                 turnDirection -= 1
 
             self.playerCar.update(self.deltaTime, acceleration, turnDirection, self.track)
+            self.agentCar.update(self.deltaTime, self.track)
 
-        self.agentCar.update(self.deltaTime, self.track)
-
-    def drawGame(self):
-        self.screen.fill((8, 132, 28))
-
-        if self.training:
-            self.cameraOffset = self.agentCar.getCameraOffset(self.cameraOffset)
-        else:
             self.cameraOffset = self.playerCar.getCameraOffset(self.cameraOffset)
-
-        self.track.draw(self.screen, self.cameraOffset)
-
-        self.agentCar.draw(self.screen, self.cameraOffset)
-
-        if not self.training:
-            self.playerCar.draw(self.screen, self.cameraOffset)
-
-        pygame.display.flip()
-
-    def gameLoop(self):
-        gameRunning = True
-        self.cameraOffset = pygame.Vector2(0, 0)
-
-        if not self.training:
-            self.playerCar = Car(1000, 1000, 0, self.blueCarImage)
-
-        self.agentCar = CarAgent(300, 300, 0, self.redCarImage)
-
-        while self.running and gameRunning:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-
-            self.update()
-            self.drawGame()
             
+            self.screen.fill((8, 132, 28))
+            self.track.draw(self.screen, self.cameraOffset)
+
+            self.playerCar.draw(self.screen, self.cameraOffset)
+            self.agentCar.draw(self.screen, self.cameraOffset)
+
+            pygame.display.flip()
+
             self.deltaTime = self.clock.tick(FPS) / 1000
 
 class Car:
     def __init__(self, x, y, direction, image):
-        self.maxSpeed = 700
-        self.acceleration = 200
+        self.maxSpeed = 800
+        self.acceleration = 300
 
         self.friction = 0.5
         self.brakeStrength = 3
         self.stoppingOffset = 50
 
-        self.steerSpeed = 90
+        self.steerSpeed = 60
         self.steerCenterSpeed = 90
 
         self.width = 80
@@ -160,7 +197,7 @@ class Car:
 
         if steerDirection != 0:
             self.wheelDirection += steerDirection * self.steerSpeed * deltaTime
-            self.wheelDirection = max(-35, min(self.wheelDirection, 35))
+            self.wheelDirection = max(-45, min(self.wheelDirection, 45))
         else:
             if self.wheelDirection > 0:
                 self.wheelDirection = max(
@@ -170,7 +207,7 @@ class Car:
                     self.wheelDirection + self.steerCenterSpeed * deltaTime, 0)
 
         if self.speed != 0 and self.wheelDirection != 0:
-            turningRadius = (self.height * 2) / \
+            turningRadius = (self.height * 4) / \
                 math.tan(math.radians(self.wheelDirection))
             angularVelocity = self.speed / turningRadius
             self.direction += math.degrees(angularVelocity * deltaTime)
@@ -219,20 +256,73 @@ class CarAgent(Car):
         super().update(deltaTime, random.randint(-1, 1), 1, track)
 
 class Track:
+    def __init__(self, points=[]):
+        self.points = points
+
+        self.pointRadius = 25
+        self.lineThickness = 10
+        self.pointColour = (255, 0, 0)
+        self.lineColour = (0, 0, 0)
+
+    def addPoint(self, pos):
+        self.points.append(pos)
+
+    def movePoint(self, index, newPosition):
+        self.points[index] = newPosition
+
+    def removePoint(self, index):
+        self.points.pop(index)
+
+    def getPoints(self):
+        return self.points
+
+    def getHoveredPoint(self, mousePosition):
+        for index, point in enumerate(self.points):
+            if math.dist(mousePosition, point) < self.pointRadius:
+                return index
+
+    def getLines(self):
+        lines = []
+
+        for i in range(len(self.points) - 2):
+            lines += self.getCurve(self.points[i:i+3])
+
+        return lines
+
+    def getCurve(self, points, n=20):
+        curve = []
+        for i in range(n + 1):
+            t = i / n
+
+            x = ((1 - t)**3 * points[0][0]) + (3 * (1 - t)**2 * t * points[1][0]) + (2 * (1 - t) * t**2 * points[2][0]) + (t**3 * points[3][0])
+            y = ((1 - t)**3 * points[0][1]) + (3 * (1 - t)**2 * t * points[1][1]) + (2 * (1 - t) * t**2 * points[2][1]) + (t**3 * points[3][1])
+
+            curve.append((x, y))
+        
+        return curve
+
+    def drawEditor(self, screen):
+        if len(self.points) > 3:
+            for i in range(0, len(self.points) - 3, 3):
+                curvePoints = self.points[i:i+4]
+                if i + 4 < len(self.points):
+                    curvePoints[2] = self.points[i+4]
+
+                curve = self.getCurve(curvePoints)
+                pygame.draw.lines(screen, self.lineColour, False, curve, self.lineThickness)
+        
+        for point in self.points:
+            pygame.draw.circle(screen, self.pointColour, point, self.pointRadius)
+
+
+class ImageTrack:
     def __init__(self, image):
         self.image = pygame.transform.scale(image, (image.get_width() * 10, image.get_height() * 10))
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect()
 
     def invertMask(self):
-        maskSize = self.mask.get_size()
-
-        for x in range(maskSize[0]):
-            for y in range(maskSize[1]):
-                if self.mask.get_at((x, y)):
-                    self.mask.set_at((x, y), 0)
-                else:
-                    self.mask.set_at((x, y), 1)
+        self.mask.invert()
         
     def getOverlap(self, x, y, mask):
         offset = (int(x - self.rect.x), int(y - self.rect.y))
