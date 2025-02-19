@@ -1,16 +1,18 @@
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK, CAMERA_SCROLL_SPEED, TRACK_WIDTH, TRACK_HEIGHT
+from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK, CAMERA_SCROLL_SPEED, TRACK_WIDTH, TRACK_HEIGHT, CAR_WIDTH, CAR_HEIGHT, ASSETS_PATH
 import pygame
 import random
 import json
 import math
+import os
 
 pygame.init()
 
 font16 = pygame.font.Font("Assets/Fonts/font.otf", 16)
-font128 = pygame.font.Font("Assets/Fonts/font.otf", 128)
+font32 = pygame.font.Font("Assets/Fonts/font.otf", 32)
+font64 = pygame.font.Font("Assets/Fonts/font.otf", 64)
 
-blueCarImage = pygame.image.load("Assets/Cars/BlueCar.png")
-redCarImage = pygame.image.load("Assets/Cars/RedCar.png")
+blueCarImage = pygame.transform.scale(pygame.image.load("Assets/Cars/BlueCar.png"), (CAR_WIDTH, CAR_HEIGHT))
+redCarImage = pygame.transform.scale(pygame.image.load("Assets/Cars/RedCar.png"), (CAR_WIDTH, CAR_HEIGHT))
 
 class Game:
     def __init__(self):
@@ -24,30 +26,41 @@ class Game:
         self.displayMainMenu()
 
     def displayMainMenu(self):
-        self.playButton = Button(0.1, 0.2, 0.2, 0.1, "Play", font16, (255, 255, 255), (255, 255, 255), 5)
-        self.trackButton = Button(0.1, 0.35, 0.2, 0.1, "Create Track", font16, (255, 255, 255), (255, 255, 255), 5)
-        self.trainButton = Button(0.1, 0.5, 0.2, 0.1, "Train an Agent", font16, (255, 255, 255), (255, 255, 255), 5)
-        self.exitButton = Button(0.1, 0.65, 0.2, 0.1, "Exit", font16, (255, 255, 255), (255, 255, 255), 5)
+        self.playButton = Button(0.1, 0.2, 0.2, 0.1, "Play", font16, (255, 255, 255), (0, 0, 0),(255, 255, 255), 5, 7)
+        self.trackButton = Button(0.1, 0.35, 0.2, 0.1, "Create Track", font16, (255, 255, 255), (0, 0, 0), (255, 255, 255), 5, 7)
+        self.trainButton = Button(0.1, 0.5, 0.2, 0.1, "Train an Agent", font16, (255, 255, 255), (0, 0, 0), (255, 255, 255), 5, 7)
+        self.exitButton = Button(0.1, 0.65, 0.2, 0.1, "Exit", font16, (255, 255, 255), (0, 0, 0), (255, 255, 255), 5, 7)
+
+        buttons = [self.playButton, self.trackButton, self.trainButton, self.exitButton]
 
         while self.running:
+            hoveredButton = None
+            for button in buttons:
+                button.setHovered(False)
+
+                if button.checkHovered(pygame.mouse.get_pos()):
+                    button.setHovered(True)
+                    hoveredButton = button
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    if self.playButton.checkHovered(pygame.mouse.get_pos()):
-                        self.track = ImageTrack(self.trackImage)
-                        self.track.invertMask()
-                        self.gameLoop()
+                    if hoveredButton:
+                        if hoveredButton == self.playButton:
+                            self.trackSelection()
+                            self.gameLoop()
 
-                    elif self.trackButton.checkHovered(pygame.mouse.get_pos()):
-                        self.trackEditor()
+                        elif hoveredButton == self.trackButton:#
+                            self.trackSelection()
+                            self.trackEditor()
 
-                    elif self.trainButton.checkHovered(pygame.mouse.get_pos()):
-                        pass
+                        elif hoveredButton == self.trainButton:
+                            pass
 
-                    elif self.exitButton.checkHovered(pygame.mouse.get_pos()):
-                        self.running = False
+                        elif hoveredButton == self.exitButton:
+                            self.running = False
             
             self.screen.fill((8, 132, 28))
 
@@ -60,15 +73,52 @@ class Game:
 
             self.deltaTime = self.clock.tick(FPS) / 1000
     
-    def trackEditor(self):
-        self.track = Track()
+    def trackSelection(self):
+        tracksPath = f"{ASSETS_PATH}/Tracks"
+        tracksPaths = os.listdir(tracksPath)
+        
+        trackButtons = []
+        for trackPath in tracksPaths:
+            strippedPath = trackPath[:-5]
+            trackButton = Button(0.1, 0.2, 0.2, 0.1, strippedPath, font16, (255, 255, 255), (0, 0, 0),(255, 255, 255), 5, 7)
+            trackButtons.append(trackButton)
 
+        selectedTrack = 0
+        trackButtons[selectedTrack].setHovered(True)
+
+        selectedTrack = True
+        while self.running and selectingTrack:
+            hoveredButtonIndex = None
+            for index, button in enumerate(trackButtons):
+                button.setHovered(False)
+
+                if button.checkHovered(pygame.mouse.get_pos()):
+                    button.setHovered(True)
+                    hoveredButtonIndex = index
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if hoveredButtonIndex is not None:
+                        selectedTrack = hoveredButtonIndex
+            
+            self.screen.fill((8, 132, 28))
+
+            for button in trackButtons:
+                button.draw(self.screen)
+
+            pygame.display.flip()
+
+            self.deltaTime = self.clock.tick(FPS) / 1000
+
+    def trackEditor(self):
         zoom = int(TRACK_WIDTH / SCREEN_WIDTH)
         trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT))
         selectedPoint = None
 
         editorRunning = True
-        
         while self.running and editorRunning:
             updateGraphics = False
 
@@ -123,7 +173,6 @@ class Game:
         self.cameraOffset = pygame.Vector2(0, 0)
 
         gameRunning = True
-
         while self.running and gameRunning:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -169,9 +218,6 @@ class Car:
         self.steerSpeed = 60
         self.steerCenterSpeed = 90
 
-        self.width = 80
-        self.height = 106
-
         self.x = x
         self.y = y
 
@@ -179,9 +225,11 @@ class Car:
         self.wheelDirection = direction
         self.direction = direction
 
-        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
-        self.image = pygame.transform.scale(image, (self.width, self.height))
+        self.image = image
         self.mask = pygame.mask.from_surface(self.image)
+
+        self.rect = image.get_rect()
+        self.rect.center = (x, y)
 
     def update(self, deltaTime, acceleration, steerDirection, track):
         if acceleration == 1:
@@ -272,11 +320,15 @@ class Track:
             self.importTrack(filePath)
         else:
             self.points = []
+            self.spawnPoint = pygame.Vector2(TRACK_WIDTH / 2, TRACK_HEIGHT / 2)
 
-            self.trackWidth = 200
+            self.trackWidth = 150
             self.trackColour = (50, 50, 50)
 
-        self.pointRadius = 25
+        self.spawnImage = blueCarImage
+        self.spawnRect = blueCarImage.get_rect()
+
+        self.pointRadius = 15
         self.pointColour = (255, 0, 0)
 
         self.pointLabelOffset = pygame.Vector2(10, 10)
@@ -290,10 +342,13 @@ class Track:
         self.points.append(pos)
 
     def movePoint(self, index, newPosition):
-        self.points[index] = newPosition
+        if index == "spawn":
+            self.spawnPoint = newPosition
+        else:
+            self.points[index] = newPosition
 
     def removePoint(self, index=-1):
-        if len(self.points) > 0:
+        if len(self.points) > 0 and index != "spawn":
             self.points.pop(index)
 
     def getPoints(self):
@@ -303,6 +358,9 @@ class Track:
         for index, point in enumerate(self.points):
             if math.dist(mousePosition, point) < self.pointRadius:
                 return index
+
+        if self.spawnRect.collidepoint(mousePosition):
+            return "spawn"
 
     def getLines(self):
         lines = []
@@ -340,36 +398,64 @@ class Track:
 
         return curve
 
-    def drawEditor(self, screen):
-        if len(self.points) > 3:
-            curves = []
+    def getCurves(self):
+        curves = []
 
+        if len(self.points) > 3:
             for i in range(len(self.points) - 3):
                 curves.append(self.getCurve(self.points[i:i + 4]))
 
             for i in range(3):
                 curves.append(self.getCurve(self.points[i-3:] + self.points[:i+1]))
 
-            for curve in curves:
-                for point in curve:
-                    pygame.draw.circle(screen, self.trackColour, point, self.trackWidth)
+        return curves
 
-            for i, curve in enumerate(curves):
-                for point in curve:
-                    if i == len(curves) - 2:
-                        pygame.draw.lines(screen, self.connectingLineColour, False, curve, self.lineThickness)
-                    else:
-                        pygame.draw.lines(screen, self.lineColour, False, curve, self.lineThickness)
+    def draw(self, screen):
+        curves = self.getCurves()
         
-        for i, point in enumerate(self.points):
-            pointLabel = font128.render(f"P{i}", True, self.pointLabelColour)
+        for curve in curves:
+            for point in curve:
+                pygame.draw.circle(screen, self.trackColour, point, self.trackWidth)
+
+    def drawEditor(self, screen):
+        curves = self.getCurves()
+        
+        for curve in curves:
+            for point in curve:
+                pygame.draw.circle(screen, self.trackColour, point, self.trackWidth)
+
+        for index, curve in enumerate(curves):
+            for point in curve:
+                if index == len(curves) - 2:
+                    pygame.draw.lines(screen, self.connectingLineColour, False, curve, self.lineThickness)
+                else:
+                    pygame.draw.lines(screen, self.lineColour, False, curve, self.lineThickness)
+        
+        for index, point in enumerate(self.points):
+            pointLabel = font64.render(f"P{index}", True, self.pointLabelColour)
             
             pygame.draw.circle(screen, self.pointColour, point, self.pointRadius)
             screen.blit(pointLabel, point + self.pointLabelOffset)
+
+        self.spawnRect.center = self.spawnPoint
+        screen.blit(self.spawnImage, self.spawnRect)
     
+    def createSurfaceAndMask(self):
+        self.trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT))
+        self.draw(trackSurface)
+
+        self.mask = pygame.mask.from_surface(trackSurface)
+        self.mask.invert()
+
+    def getOverlap(self, x, y, mask):
+        offset = (int(x - self.rect.x), int(y - self.rect.y))
+        overlap = self.mask.overlap(mask, offset)
+        return overlap
+
     def exportTrack(self, filePath):
         output = {
             "Points": self.points,
+            "SpawnPoint": self.spawnPoint,
             "TrackWidth": self.trackWidth,
             "TrackColour": self.trackColour
         }
@@ -382,8 +468,17 @@ class Track:
             data = json.load(file)
 
             self.points = data["Points"]
+            self.spawnPoint = data["SpawnPoint"]
             self.trackWidth = data["TrackWidth"]
             self.trackColour = data["TrackColour"]
+
+    def getOverlap(self, x, y, mask):
+        offset = (int(x - self.rect.x), int(y - self.rect.y))
+        overlap = self.mask.overlap(mask, offset)
+        return overlap
+
+    def draw(self, screen, cameraOffset):
+        screen.blit(self.image, (self.rect.topleft - cameraOffset, (self.rect.width, self.rect.height)))
 
 class ImageTrack:
     def __init__(self, image):
@@ -393,29 +488,36 @@ class ImageTrack:
 
     def invertMask(self):
         self.mask.invert()
-        
-    def getOverlap(self, x, y, mask):
-        offset = (int(x - self.rect.x), int(y - self.rect.y))
-        overlap = self.mask.overlap(mask, offset)
-        return overlap
-
-    def draw(self, screen, cameraOffset):
-        screen.blit(self.image, (self.rect.topleft - cameraOffset, (self.rect.width, self.rect.height)))
 
 class Button:
-    def __init__(self, x, y, width, height, text, font, textColour, bgColour, rectThickness = 0):
+    def __init__(self, x, y, width, height, text, font, textColour, backgroundColour, borderColour=(0,0,0), rectThickness=0, hoverThickness=0):
         self.text = font.render(text, True, textColour)
-        self.rect = pygame.Rect(0, 0, SCREEN_WIDTH * width, SCREEN_HEIGHT * height)
-        self.rect.center = (SCREEN_WIDTH * x, SCREEN_HEIGHT * y)
+        self.rect = pygame.Rect(SCREEN_WIDTH * x, SCREEN_HEIGHT * y, SCREEN_WIDTH * width, SCREEN_HEIGHT * height)
+
+        self.backgroundColour = backgroundColour
+        self.borderColour = borderColour
+
         self.rectThickness = rectThickness
-        self.bgColour = bgColour
+        self.normalThickness = rectThickness
+        self.hoverThickness = hoverThickness
 
     def draw(self, screen):
-        pygame.draw.rect(screen, self.bgColour, self.rect, self.rectThickness)
+        pygame.draw.rect(screen, self.backgroundColour, self.rect)
+        pygame.draw.rect(screen, self.borderColour, self.rect, self.rectThickness)
         screen.blit(self.text, self.text.get_rect(center=self.rect.center))
+
+    def moveButton(self, x, y):
+        self.rect.x = x
+        self.rect.y = y
 
     def checkHovered(self, mousePosition):
         return self.rect.collidepoint(mousePosition)
+
+    def setHovered(self, hovered):
+        if hovered:
+            self.rectThickness = self.hoverThickness
+        else:
+            self.rectThickness = self.normalThickness
 
 if __name__ == "__main__":
     Game()
