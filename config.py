@@ -12,4 +12,14 @@ ASSETS_PATH = "Assets"
 FPS = 60
 CAMERA_SCROLL_SPEED = 0.1
 
-TRACK = "track1"
+COLOUR_SCHEME = [
+    (255, 255, 255),
+    (0, 0, 0),
+    (31, 102, 31),
+    (11, 36, 11)
+]
+
+BUTTON_BORDER_THICKNESS = 5
+BUTTON_HOVER_THICKNESS = 7
+
+DEFAULT_TRACK_NAME = "track"
