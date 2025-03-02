@@ -137,16 +137,21 @@ class Game:
 
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_w or event.key == pygame.K_UP:
-                        scrollIndex = max(scrollIndex - 1, 0)
-                        updateButtons = True
-                    elif event.key == pygame.K_s or event.key == pygame.K_DOWN:
-                        scrollIndex = min(scrollIndex + 1, max(len(trackButtons) - tracksPerPage, 0))
-                        updateButtons = True
-
-                    if scrollIndex > selectedTrack:
                         trackButtons[selectedTrack].setSelected(False)
-                        selectedTrack = scrollIndex
+                        selectedTrack = max(selectedTrack - 1, 0)
                         trackButtons[selectedTrack].setSelected(True)
+                        
+                        if selectedTrack < scrollIndex:
+                            scrollIndex -= 1
+                            updateButtons = True
+                    elif event.key == pygame.K_s or event.key == pygame.K_DOWN:
+                        trackButtons[selectedTrack].setSelected(False)
+                        selectedTrack = min(selectedTrack + 1, len(trackButtons) - 1)
+                        trackButtons[selectedTrack].setSelected(True)
+
+                        if selectedTrack >= scrollIndex + tracksPerPage:
+                            scrollIndex += 1  
+                            updateButtons = True                  
             
             if updateButtons:
                 for index, button in enumerate(trackButtons):
@@ -321,10 +326,12 @@ class Car:
         self.direction = direction
 
         self.image = image
+        self.rotatedImage = pygame.transform.rotate(self.image, -self.direction)
         self.mask = pygame.mask.from_surface(self.image)
         self.maskOffset = (0, 0)
 
         self.rect = image.get_rect()
+        self.imageRect = self.rect
         self.rect.center = (x, y)
 
     def update(self, deltaTime, acceleration, steerDirection, track):
@@ -361,24 +368,39 @@ class Car:
                 self.wheelDirection = min(
                     self.wheelDirection + self.steerCenterSpeed * deltaTime, 0)
 
+
         if self.speed != 0 and self.wheelDirection != 0:
             turningRadius = (self.rect.height * 4) / \
                 math.tan(math.radians(self.wheelDirection))
             angularVelocity = self.speed / turningRadius
-            self.direction += math.degrees(angularVelocity * deltaTime)
-        
+            directionChange = math.degrees(angularVelocity * deltaTime)
+
+            newImage = pygame.transform.rotate(self.image, -(self.direction + directionChange))
+            newMask = pygame.mask.from_surface(newImage)
+
+            newImageRect = newImage.get_rect()
+            newImageRect.center = self.rect.center
+
+            overlap = track.getOverlap(self.imageRect.x, self.imageRect.y, newMask)
+            if not overlap:
+                self.rotatedImage = newImage
+                self.imageRect = newImageRect
+                self.mask = newMask
+
+                self.direction += directionChange
+
         xChange = self.speed * \
             math.sin(math.radians(self.direction)) * deltaTime
         yChange = self.speed * \
             math.cos(math.radians(self.direction)) * deltaTime
 
-        overlapX = track.getOverlap(self.x + xChange + self.maskOffset[0], self.y + self.maskOffset[1], self.mask)
+        overlapX = track.getOverlap(self.imageRect.x + xChange, self.imageRect.y, self.mask)
         if not overlapX:
             self.x += xChange
         else:
             self.speed -= self.speed * abs(math.sin(math.radians(self.direction))) * (10/FPS)
         
-        overlapY = track.getOverlap(self.x + self.maskOffset[0], self.y - yChange + self.maskOffset[1], self.mask)
+        overlapY = track.getOverlap(self.imageRect.x, self.imageRect.y - yChange, self.mask)
         if not overlapY:
             self.y -= yChange
         else:
@@ -386,6 +408,7 @@ class Car:
 
         self.rect.x = self.x
         self.rect.y = self.y
+        self.imageRect.center = self.rect.center
 
     def getCameraOffset(self, cameraOffset):
         xTrueOffset = self.x - SCREEN_WIDTH / 2
@@ -397,23 +420,32 @@ class Car:
         return cameraOffset + pygame.Vector2(xOffset, yOffset)
 
     def draw(self, screen, cameraOffset):
-        rotatedImage = pygame.transform.rotate(self.image, -self.direction)
-        imageRect = rotatedImage.get_rect()
-        imageRect.center = self.rect.center - cameraOffset
-
-        self.mask = pygame.mask.from_surface(rotatedImage)
-        self.maskOffset = ((imageRect.x + cameraOffset[0]) - self.x, (imageRect.y + cameraOffset[1]) - self.y)
-        print(self.maskOffset)
-
-        screen.blit(rotatedImage, imageRect)
+        screen.blit(self.rotatedImage, (self.imageRect.x - cameraOffset[0], self.imageRect.y - cameraOffset[1]))
 
 class CarAgent(Car):
-    def __init__(self, x, y, direction, image, model=False):
-        self.model = model
+    def __init__(self, x, y, direction, image, sensorCount, model=False):
         super().__init__(x, y, direction, image)
+        
+        self.fov = 180
+        self.sensors = self.getSensors(sensorCount)
+        self.model = False
 
     def update(self, deltaTime, track):
         super().update(deltaTime, random.randint(-1, 1), 1, track)
+    
+    def getSensors(self, sensorCount):
+        frontOffset = (self.width, 0)
+        sensors = []
+
+        for index in range(sensorCount):
+            origin = pygame.Vector2(0, self.height / sensorCount) + frontOffset
+            angle = self.fov / sensorCount
+            sensors.append((origin, angle))
+
+        return sensors
+
+    def getDistances(self, track):
+        pass
     
 class Track:
     def __init__(self, filePath=None):
