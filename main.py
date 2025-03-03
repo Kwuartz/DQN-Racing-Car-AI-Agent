@@ -419,11 +419,39 @@ class Car:
 
         return cameraOffset + pygame.Vector2(xOffset, yOffset)
 
+    def getDistances(self, screen, cameraOffset, maxDistance=200):
+        self.sensors = self.getSensors(4)
+        distances = []
+
+        for sensor in self.sensors:
+            angle = math.radians(self.direction - sensor[1])
+            directionVector = pygame.Vector2(math.cos(angle), math.sin(angle))
+            sensorPosition = pygame.Vector2(self.x, self.y) + sensor[0]
+
+            sensorDistance = maxDistance
+            for distance in range(maxDistance):
+                position = sensorPosition + directionVector * distance
+                print(position)
+                screen.set_at((round(position.x - cameraOffset[0]), round(position.y - cameraOffset[1])), (255, 0, 0))
+
+    def getSensors(self, sensorCount):
+        self.fov = 180
+        frontOffset = (self.rect.width, 0)
+        sensors = []
+
+        for index in range(sensorCount):
+            offset = pygame.Vector2(0, self.rect.height / sensorCount) + frontOffset
+            angle = self.fov / sensorCount
+            sensors.append((offset, angle))
+
+        return sensors
+
     def draw(self, screen, cameraOffset):
         screen.blit(self.rotatedImage, (self.imageRect.x - cameraOffset[0], self.imageRect.y - cameraOffset[1]))
+        self.getDistances(screen, cameraOffset)
 
 class CarAgent(Car):
-    def __init__(self, x, y, direction, image, sensorCount, model=False):
+    def __init__(self, x, y, direction, image, sensorCount=4, model=False):
         super().__init__(x, y, direction, image)
         
         self.fov = 180
@@ -434,18 +462,36 @@ class CarAgent(Car):
         super().update(deltaTime, random.randint(-1, 1), 1, track)
     
     def getSensors(self, sensorCount):
-        frontOffset = (self.width, 0)
+        frontOffset = (self.rect.width, 0)
         sensors = []
 
         for index in range(sensorCount):
-            origin = pygame.Vector2(0, self.height / sensorCount) + frontOffset
+            offset = pygame.Vector2(0, self.rect.height / sensorCount) + frontOffset
             angle = self.fov / sensorCount
-            sensors.append((origin, angle))
+            sensors.append((offset, angle))
 
         return sensors
 
-    def getDistances(self, track):
-        pass
+    def getDistances(self, track, maxDistance=200):
+        distances = []
+
+        for sensor in self.sensors:
+            angle = math.radians(self.direction - sensor[1])
+            directionVector = pygame.Vector2(math.cos(angle), math.sin(angle))
+            sensorPosition = pygame.Vector2(self.x, self.y) + sensor[0]
+
+            sensorDistance = maxDistance
+            for distance in range(maxDistance):
+                position = sensorPosition + directionVector * distance
+                if track.checkCollideAtPoint(position):
+                    sensorDistance = distance
+                    break
+            distances.append(sensorDistance)
+
+        return distances
+            
+    def draw(self, screen, cameraOffset):
+        screen.blit(self.rotatedImage, (self.imageRect.x - cameraOffset[0], self.imageRect.y - cameraOffset[1]))
     
 class Track:
     def __init__(self, filePath=None):
@@ -589,6 +635,9 @@ class Track:
     def getOverlap(self, x, y, mask):
         overlap = self.mask.overlap(mask, (x, y))
         return overlap
+
+    def checkCollideAtPoint(self, position):
+        return self.mask.get_at(position)
 
     def getFilePath(self):
         return self.filePath
