@@ -49,7 +49,7 @@ class Game:
                         if hoveredButton == playButton:
                             trackSelected = self.trackSelection()
                             if trackSelected:
-                                self.track.createSurfaceAndMask()
+                                self.track.initialiseTrack()
                                 self.gameLoop()
                         elif hoveredButton == trackButton:
                             while self.trackSelection(True):
@@ -511,6 +511,13 @@ class Track:
             self.trackWidth = 250
             self.trackColour = (50, 50, 50)
 
+        self.checkpoints = None
+        self.finishLine = None
+
+        self.checkpointThickness = 10
+        self.checkpointColour = (255, 255, 0)
+        self.finishLineColour = (255, 0, 255)
+
         self.spawnImage = blueCarImage
         self.spawnRect = blueCarImage.get_rect()
         self.spawnRect.center = self.spawnPoint
@@ -600,19 +607,31 @@ class Track:
 
         return curves
 
-    def drawCircles(self, screen):
-        curves = self.getCurves()
-        
+    def getCheckpoints(self, curves):
+        checkpoints = []
+
+        for curve in curves:
+            midpoint = len(curve) // 2
+            point1 = pygame.Vector2(curve[midpoint])
+            point2 = pygame.Vector2(curve[midpoint + 1])
+
+            difference = point2 - point1
+            perpendicularDirection = pygame.Vector2(-difference.y, difference.x).normalize()
+
+            offset = perpendicularDirection * self.trackWidth
+            checkpoints.append((point1 + offset, point1 - offset))
+
+        return checkpoints
+
+    def drawCircles(self, screen, curves):
         for curve in curves:
             for point in curve:
                 pygame.draw.circle(screen, self.trackColour, point, self.trackWidth)
 
     def drawEditor(self, screen):
         curves = self.getCurves()
-        
-        for curve in curves:
-            for point in curve:
-                pygame.draw.circle(screen, self.trackColour, point, self.trackWidth)
+
+        self.drawCircles(screen, curves)
 
         for index, curve in enumerate(curves):
             for point in curve:
@@ -627,15 +646,26 @@ class Track:
             pygame.draw.circle(screen, self.pointColour, point, self.pointRadius)
             screen.blit(pointLabel, point + self.pointLabelOffset)
 
+        checkpoints = self.getCheckpoints(curves)
+        for index, checkpoint in enumerate(checkpoints):
+            if index == len(checkpoints) - 2:
+                pygame.draw.line(screen, self.finishLineColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
+            else:
+                pygame.draw.line(screen, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
+
         self.spawnRect.center = self.spawnPoint
         screen.blit(self.spawnImage, self.spawnRect)
     
-    def createSurfaceAndMask(self):
+    def initialiseTrack(self):
+        curves = self.getCurves()
         self.trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT), pygame.SRCALPHA)
-        self.drawCircles(self.trackSurface)
+        self.drawCircles(self.trackSurface, curves)
 
         self.mask = pygame.mask.from_surface(self.trackSurface)
         self.mask.invert()
+
+        self.checkpoints = self.getCheckpoints(curves)
+        self.finishLine = self.checkpoints[-2]
 
     def getOverlap(self, x, y, mask):
         overlap = self.mask.overlap(mask, (x, y))
