@@ -315,7 +315,7 @@ class Car:
         self.brakeStrength = 3
         self.stoppingOffset = 50
 
-        self.steerSpeed = 60
+        self.steerSpeed = 90
         self.steerCenterSpeed = 90
 
         self.x = x
@@ -335,6 +335,7 @@ class Car:
         self.rect.center = (x, y)
 
     def update(self, deltaTime, acceleration, steerDirection, track):
+        self.track = track
         if acceleration == 1:
             if self.speed >= 0:
                 self.speed = min(
@@ -397,18 +398,18 @@ class Car:
         overlapX = track.getOverlap(self.imageRect.x + xChange, self.imageRect.y, self.mask)
         if not overlapX:
             self.x += xChange
+            self.rect.x = self.x
+            self.imageRect.center = self.rect.center
         else:
-            self.speed -= self.speed * abs(math.sin(math.radians(self.direction))) * (10/FPS)
+            self.speed = 0
         
         overlapY = track.getOverlap(self.imageRect.x, self.imageRect.y - yChange, self.mask)
         if not overlapY:
             self.y -= yChange
+            self.rect.y = self.y
+            self.imageRect.center = self.rect.center
         else:
-            self.speed -= self.speed * abs(math.cos(math.radians(self.direction))) * (10/FPS)
-
-        self.rect.x = self.x
-        self.rect.y = self.y
-        self.imageRect.center = self.rect.center
+            self.speed = 0
 
     def getCameraOffset(self, cameraOffset):
         xTrueOffset = self.x - SCREEN_WIDTH / 2
@@ -420,42 +421,46 @@ class Car:
         return cameraOffset + pygame.Vector2(xOffset, yOffset)
 
     def getDistances(self, screen, cameraOffset, maxDistance=200):
-        self.sensors = self.getSensors(4)
         distances = []
 
+        self.sensors= [
+            -180,
+            -135,
+            -45,
+            0,
+        ]
+
         for sensor in self.sensors:
-            angle = math.radians(self.direction - sensor[1])
-            directionVector = pygame.Vector2(math.cos(angle), math.sin(angle))
-            sensorPosition = pygame.Vector2(self.x, self.y) + sensor[0]
+            sensorAngle = math.radians(self.direction + sensor)
+            directionVector = pygame.Vector2(math.cos(sensorAngle), math.sin(sensorAngle))
 
             sensorDistance = maxDistance
             for distance in range(maxDistance):
-                position = sensorPosition + directionVector * distance
-                print(position)
+                position = self.imageRect.center + directionVector * distance
                 screen.set_at((round(position.x - cameraOffset[0]), round(position.y - cameraOffset[1])), (255, 0, 0))
 
-    def getSensors(self, sensorCount):
-        self.fov = 180
-        frontOffset = (self.rect.width, 0)
-        sensors = []
-
-        for index in range(sensorCount):
-            offset = pygame.Vector2(0, self.rect.height / sensorCount) + frontOffset
-            angle = self.fov / sensorCount
-            sensors.append((offset, angle))
-
-        return sensors
+                if self.track.checkCollideAtPoint(position):
+                    sensorDistance = distance
+                    break
+            distances.append(sensorDistance)
+        
+        return distances
 
     def draw(self, screen, cameraOffset):
         screen.blit(self.rotatedImage, (self.imageRect.x - cameraOffset[0], self.imageRect.y - cameraOffset[1]))
         self.getDistances(screen, cameraOffset)
 
 class CarAgent(Car):
-    def __init__(self, x, y, direction, image, sensorCount=4, model=False):
+    def __init__(self, x, y, direction, image, model=False):
         super().__init__(x, y, direction, image)
         
-        self.fov = 180
-        self.sensors = self.getSensors(sensorCount)
+        self.sensors= [
+            -180,
+            -135,
+            -45,
+            0,
+        ]
+
         self.model = False
 
     def update(self, deltaTime, track):
@@ -476,18 +481,18 @@ class CarAgent(Car):
         distances = []
 
         for sensor in self.sensors:
-            angle = math.radians(self.direction - sensor[1])
-            directionVector = pygame.Vector2(math.cos(angle), math.sin(angle))
-            sensorPosition = pygame.Vector2(self.x, self.y) + sensor[0]
+            sensorAngle = math.radians(self.direction + sensor)
+            directionVector = pygame.Vector2(math.cos(sensorAngle), math.sin(sensorAngle))
 
             sensorDistance = maxDistance
             for distance in range(maxDistance):
-                position = sensorPosition + directionVector * distance
+                position = self.imageRect.center + directionVector * distance
+
                 if track.checkCollideAtPoint(position):
                     sensorDistance = distance
                     break
             distances.append(sensorDistance)
-
+        
         return distances
             
     def draw(self, screen, cameraOffset):
