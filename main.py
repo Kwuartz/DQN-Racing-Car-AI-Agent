@@ -23,6 +23,7 @@ class Game:
         self.running = True
         self.clock = pygame.time.Clock()
         self.deltaTime = 1 / FPS
+        self.maxLaps = 2
 
         self.displayMainMenu()
 
@@ -193,8 +194,10 @@ class Game:
         trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT))
         selectedPoint = None
 
+        firstDraw = True
         editorRunning = True
         while self.running and editorRunning:
+            updateTrack = False
             hoveredElement = None
             for element in elements:
                 if element.updateHovered(pygame.mouse.get_pos()):
@@ -212,6 +215,7 @@ class Game:
                     trackNameBox.setSelected(editingTrackName)
 
                     if event.button == 1:
+                        updateTrack = True
                         if hoveredElement:
                             if hoveredElement == backButton:
                                 editorRunning = False
@@ -237,6 +241,7 @@ class Game:
                                 self.track.addPoint(scaledMousePosition)
 
                     elif event.button == 3:
+                        updateTrack = True
                         if (hoveredPoint := self.track.getHoveredPoint(scaledMousePosition)) is not None:
                             self.track.removePoint(hoveredPoint)
                         else:
@@ -246,10 +251,16 @@ class Game:
                     trackNameBox.update(event)
 
             if selectedPoint is not None:
+                updateTrack = True
                 self.track.movePoint(selectedPoint, scaledMousePosition)
             
-            trackSurface.fill((8, 132, 28))
-            self.track.drawEditor(trackSurface)
+            if firstDraw:
+                updateTrack = True
+                firstDraw = False
+
+            if updateTrack:
+                trackSurface.fill((8, 132, 28))
+                self.track.drawEditor(trackSurface)
 
             scaledTrackSurface = pygame.transform.scale(trackSurface, (SCREEN_WIDTH, SCREEN_HEIGHT))
             self.screen.blit(scaledTrackSurface, (0, 0))
@@ -263,6 +274,12 @@ class Game:
 
     def training(self):
         pass
+
+    def checkGameOver(self):
+        if self.playerCar.laps >= self.maxLaps:
+            return self.playerCar
+        elif self.agentCar.laps >= self.maxLaps:
+            return self.agentCar
 
     def gameLoop(self):
         spawnPoint = self.track.getSpawnPoint()
@@ -294,6 +311,10 @@ class Game:
             self.playerCar.update(self.deltaTime, acceleration, turnDirection, self.track)
             self.agentCar.update(self.deltaTime, self.track)
 
+            winner = self.checkGameOver()
+            if winner:
+                pass
+
             self.cameraOffset = self.playerCar.getCameraOffset(self.cameraOffset)
             
             self.screen.fill((8, 132, 28))
@@ -305,6 +326,7 @@ class Game:
             pygame.display.flip()
 
             self.deltaTime = self.clock.tick(FPS) / 1000
+            print(1 / self.deltaTime)
 
 class Car:
     def __init__(self, x, y, direction, image):
@@ -321,6 +343,9 @@ class Car:
         self.x = x
         self.y = y
 
+        self.laps = 0
+        self.checkpoint = 0
+
         self.speed = 0
         self.wheelDirection = direction
         self.direction = direction
@@ -334,8 +359,7 @@ class Car:
         self.imageRect = self.rect
         self.rect.center = (x, y)
 
-    def update(self, deltaTime, acceleration, steerDirection, track):
-        self.track = track
+    def handleInputs(self, deltaTime, acceleration, steerDirection):
         if acceleration == 1:
             if self.speed >= 0:
                 self.speed = min(
@@ -369,7 +393,7 @@ class Car:
                 self.wheelDirection = min(
                     self.wheelDirection + self.steerCenterSpeed * deltaTime, 0)
 
-
+    def moveCar(self, deltaTime, track):
         if self.speed != 0 and self.wheelDirection != 0:
             turningRadius = (self.rect.height * 4) / \
                 math.tan(math.radians(self.wheelDirection))
@@ -400,15 +424,21 @@ class Car:
             self.x += xChange
             self.rect.x = self.x
             self.imageRect.center = self.rect.center
-        else:
-            self.speed = 0
-        
+
         overlapY = track.getOverlap(self.imageRect.x, self.imageRect.y - yChange, self.mask)
         if not overlapY:
             self.y -= yChange
             self.rect.y = self.y
             self.imageRect.center = self.rect.center
-        else:
+
+        return overlapX or overlapY
+
+    def update(self, deltaTime, acceleration, steerDirection, track):
+        self.track = track
+        self.handleInputs(deltaTime, acceleration, steerDirection)
+        
+        collision = self.moveCar(deltaTime, track)
+        if collision:
             self.speed = 0
 
     def getCameraOffset(self, cameraOffset):
@@ -464,18 +494,11 @@ class CarAgent(Car):
         self.model = False
 
     def update(self, deltaTime, track):
-        super().update(deltaTime, random.randint(-1, 1), 1, track)
-    
-    def getSensors(self, sensorCount):
-        frontOffset = (self.rect.width, 0)
-        sensors = []
-
-        for index in range(sensorCount):
-            offset = pygame.Vector2(0, self.rect.height / sensorCount) + frontOffset
-            angle = self.fov / sensorCount
-            sensors.append((offset, angle))
-
-        return sensors
+        self.handleInputs(deltaTime, random.randint(-1, 1), 1)
+        
+        collision = self.moveCar(deltaTime, track)
+        if collision:
+            self.speed = 0
 
     def getDistances(self, track, maxDistance=200):
         distances = []
@@ -630,7 +653,6 @@ class Track:
 
     def drawEditor(self, screen):
         curves = self.getCurves()
-
         self.drawCircles(screen, curves)
 
         for index, curve in enumerate(curves):
