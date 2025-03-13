@@ -431,7 +431,7 @@ class Car:
             self.rect.y = self.y
             self.imageRect.center = self.rect.center
 
-        return overlapX or overlapY
+        return (overlapX or overlapY)
 
     def update(self, deltaTime, acceleration, steerDirection, track):
         self.track = track
@@ -537,6 +537,13 @@ class Track:
         self.checkpoints = None
         self.finishLine = None
 
+        self.minCurvePoints = 50
+        self.pointDensity = 25
+        self.finalPointDensity = 5
+
+        self.checkpointFrequency = 15
+        self.checkpointOffset = 20
+
         self.checkpointThickness = 10
         self.checkpointColour = (255, 255, 0)
         self.finishLineColour = (255, 0, 255)
@@ -590,15 +597,16 @@ class Track:
 
         return lines
 
-    def getCurve(self, points, n=50):
+    def getCurve(self, points):
         curve = []
-
+        curvePoints = self.minCurvePoints
+        print(points)
         distance = math.dist(points[1], points[2])
         if distance > 1000:
-            n = int(distance / 25)
+            curvePoints = int(distance / self.pointDensity)
 
-        for i in range(n + 1):
-            t = i / n
+        for index in range(curvePoints + 1):
+            t = index / curvePoints
 
             x = 0.5 * (
                 (2 * points[1][0]) +
@@ -622,11 +630,20 @@ class Track:
         curves = []
 
         if len(self.points) > 3:
-            for i in range(len(self.points) - 3):
+            """for i in range(len(self.points) - 3):
                 curves.append(self.getCurve(self.points[i:i + 4]))
 
             for i in range(3):
-                curves.append(self.getCurve(self.points[i-3:] + self.points[:i+1]))
+                curves.append(self.getCurve(self.points[i-3:] + self.points[:i+1]))"""
+            
+            
+            curves.append(self.getCurve([self.points[-1]] + self.points[:3]))
+            
+            for i in range(len(self.points) - 3):
+                curves.append(self.getCurve(self.points[i:i + 4]))
+            
+            curves.append(self.getCurve(self.points[-3:] + [self.points[0]]))
+            curves.append(self.getCurve(self.points[-2:] + self.points[:2]))
 
         return curves
 
@@ -634,6 +651,18 @@ class Track:
         checkpoints = []
 
         for curve in curves:
+            for index in range(len(curve) - self.checkpointOffset * 2 - 1):
+                if (index + self.checkpointOffset) % self.checkpointFrequency == 0:
+                    point1 = pygame.Vector2(curve[index + self.checkpointOffset])
+                    point2 = pygame.Vector2(curve[index + self.checkpointOffset + 1])
+
+                    difference = point2 - point1
+                    perpendicularDirection = pygame.Vector2(-difference.y, difference.x).normalize()
+
+                    offset = perpendicularDirection * self.trackWidth
+                    checkpoints.append((point1 + offset, point1 - offset))
+
+        """for curve in curves:
             midpoint = len(curve) // 2
             point1 = pygame.Vector2(curve[midpoint])
             point2 = pygame.Vector2(curve[midpoint + 1])
@@ -642,7 +671,7 @@ class Track:
             perpendicularDirection = pygame.Vector2(-difference.y, difference.x).normalize()
 
             offset = perpendicularDirection * self.trackWidth
-            checkpoints.append((point1 + offset, point1 - offset))
+            checkpoints.append((point1 + offset, point1 - offset))"""
 
         return checkpoints
 
@@ -670,6 +699,9 @@ class Track:
 
         checkpoints = self.getCheckpoints(curves)
         for index, checkpoint in enumerate(checkpoints):
+            checkpointLabel = font64.render(f"C{index}", True, self.pointLabelColour)
+            screen.blit(checkpointLabel, pygame.Vector2(checkpoint[0], checkpoint[1]) + self.pointLabelOffset)
+
             if index == len(checkpoints) - 2:
                 pygame.draw.line(screen, self.finishLineColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
             else:
@@ -680,14 +712,20 @@ class Track:
     
     def initialiseTrack(self):
         curves = self.getCurves()
+
+        self.checkpoints = self.getCheckpoints(curves)
+        self.finishLine = self.checkpoints[-2]
+
+        self.pointDensity = self.finalPointDensity
+        curves = self.getCurves()
+
         self.trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT), pygame.SRCALPHA)
         self.drawCircles(self.trackSurface, curves)
 
         self.mask = pygame.mask.from_surface(self.trackSurface)
         self.mask.invert()
 
-        self.checkpoints = self.getCheckpoints(curves)
-        self.finishLine = self.checkpoints[-2]
+        
 
     def getOverlap(self, x, y, mask):
         overlap = self.mask.overlap(mask, (x, y))
