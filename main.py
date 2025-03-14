@@ -7,16 +7,20 @@ import os
 
 pygame.init()
 
+# Initialising fonts
 font16 = pygame.font.Font("Assets/Fonts/font.otf", 16)
 font32 = pygame.font.Font("Assets/Fonts/font.otf", 32)
 font64 = pygame.font.Font("Assets/Fonts/font.otf", 64)
 
+# Loading car images
 blueCarImage = pygame.transform.scale(pygame.image.load("Assets/Cars/BlueCar.png"), (CAR_WIDTH, CAR_HEIGHT))
 redCarImage = pygame.transform.scale(pygame.image.load("Assets/Cars/RedCar.png"), (CAR_WIDTH, CAR_HEIGHT))
+
 tracksPath = "Assets/Tracks"
 
 class Game:
     def __init__(self):
+        #Initialising screen
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Racing Game")
 
@@ -28,6 +32,7 @@ class Game:
         self.displayMainMenu()
 
     def displayMainMenu(self):
+        #Initialising menu buttons
         playButton = Button(0.1, 0.2, 0.2, 0.1, "Play", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1],COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
         trackButton = Button(0.1, 0.35, 0.2, 0.1, "Create Track", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
         trainButton = Button(0.1, 0.5, 0.2, 0.1, "Train an Agent", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
@@ -36,16 +41,19 @@ class Game:
         buttons = [playButton, trackButton, trainButton, exitButton]
 
         while self.running:
+            # Checking if buttons are hovered
             hoveredButton = None
             for button in buttons:
                 if button.updateHovered(pygame.mouse.get_pos()):
                     hoveredButton = button
 
+            # Event handling
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
+                    # Button handling
                     if hoveredButton:
                         if hoveredButton == playButton:
                             trackSelected = self.trackSelection()
@@ -59,7 +67,8 @@ class Game:
                             pass
                         elif hoveredButton == exitButton:
                             self.running = False
-            
+
+            # Drawing main menu            
             self.screen.fill((8, 132, 28))
 
             for button in buttons:
@@ -67,6 +76,7 @@ class Game:
 
             pygame.display.flip()
 
+            # Getting time between frames
             self.deltaTime = self.clock.tick(FPS) / 1000
     
     def trackSelection(self, allowNewTrack=False):
@@ -75,6 +85,7 @@ class Game:
 
         buttons = [backButton, selectButton]
 
+        # Creating the track selection scroll menu
         containerPosition = (0.25, 0.05)
         offScreenPosition = (2, 2)
         buttonLength = 0.48
@@ -87,10 +98,12 @@ class Game:
         
         trackButtons = []
 
+        # New track button
         if allowNewTrack:
             newTrackButton = Button(0, 0, buttonLength, buttonHeight, "New Track", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
             trackButtons.append(newTrackButton)
 
+        # Creating track buttons from diirectory
         trackPaths = os.listdir(tracksPath)
         for trackPath in trackPaths:
             strippedPath = trackPath[:-5]
@@ -118,6 +131,7 @@ class Game:
                 if event.type == pygame.QUIT:
                     self.running = False
 
+                # Button handling
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if hoveredTrackIndex is not None:
                         trackButtons[selectedTrack].setSelected(False)
@@ -136,6 +150,7 @@ class Game:
 
                         return True
 
+                # Handling scrolling up and down
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_w or event.key == pygame.K_UP:
                         trackButtons[selectedTrack].setSelected(False)
@@ -154,6 +169,7 @@ class Game:
                             scrollIndex += 1  
                             updateButtons = True                  
             
+            # Only updating the positions of buttons if the user scrolled
             if updateButtons:
                 for index, button in enumerate(trackButtons):
                     if index in range(scrollIndex, scrollIndex + tracksPerPage):
@@ -162,6 +178,7 @@ class Game:
                     else:
                         button.moveButton(offScreenPosition[0], offScreenPosition[1])
 
+            # Drawing buttons and scroll container
             self.screen.fill((8, 132, 28))
 
             trackButtonsContainer.draw(self.screen)
@@ -178,6 +195,7 @@ class Game:
             updateButtons = False
 
     def trackEditor(self):
+        # Getting track name
         trackName = self.track.getFilePath()
         if trackName is None:
             trackName = DEFAULT_TRACK_NAME
@@ -190,6 +208,7 @@ class Game:
 
         elements = [backButton, saveButton, trackNameBox]
 
+        # Scaling down the track to fit on the screen
         zoom = int(TRACK_WIDTH / SCREEN_WIDTH)
         trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT))
         selectedPoint = None
@@ -203,6 +222,7 @@ class Game:
                 if element.updateHovered(pygame.mouse.get_pos()):
                     hoveredElement = element
 
+            # Scaling the mouse position so nodes are placed down accurately
             mousePosition = pygame.mouse.get_pos()
             scaledMousePosition = (mousePosition[0] * zoom, mousePosition[1] * zoom)
 
@@ -217,6 +237,7 @@ class Game:
                     if event.button == 1:
                         updateTrack = True
                         if hoveredElement:
+                            # Button handling
                             if hoveredElement == backButton:
                                 editorRunning = False
                             elif hoveredElement == saveButton:
@@ -228,40 +249,53 @@ class Game:
                                     self.track.exportTrack(trackName)
                                     editorRunning = False
 
+                            # User is editing the track name
                             elif hoveredElement == trackNameBox:
                                 editingTrackName = True
                                 trackNameBox.setSelected(editingTrackName)
 
                         elif selectedPoint is not None:
+                            # Placing down a point that was being moved
                             selectedPoint = None
                         else:
+                            # Point creation/selection (Left click)
                             if (hoveredPoint := self.track.getHoveredPoint(scaledMousePosition)) is not None:
+                                # Selecting an existing point
                                 selectedPoint = hoveredPoint
                             else:
+                                # Adding a new point
                                 self.track.addPoint(scaledMousePosition)
 
                     elif event.button == 3:
+                        # Point deletion (Right click)
                         updateTrack = True
                         if (hoveredPoint := self.track.getHoveredPoint(scaledMousePosition)) is not None:
+                            # Removing the hovered point
                             self.track.removePoint(hoveredPoint)
                         else:
+                            # Removing the last point that was placed down
                             self.track.removePoint()
 
                 elif event.type == pygame.KEYDOWN and editingTrackName:
+                    # Updating the track name
                     trackNameBox.update(event)
 
             if selectedPoint is not None:
+                # Moving the selected point with the mouse cursor
                 updateTrack = True
                 self.track.movePoint(selectedPoint, scaledMousePosition)
             
+            # Making sure the track is always drawn on the first frame
             if firstDraw:
                 updateTrack = True
                 firstDraw = False
 
+            # Only update the track if neccessary to save computing power
             if updateTrack:
                 trackSurface.fill((8, 132, 28))
                 self.track.drawEditor(trackSurface)
 
+            # Scaling the track surface and drawing it
             scaledTrackSurface = pygame.transform.scale(trackSurface, (SCREEN_WIDTH, SCREEN_HEIGHT))
             self.screen.blit(scaledTrackSurface, (0, 0))
 
