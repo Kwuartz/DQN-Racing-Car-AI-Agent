@@ -5,7 +5,7 @@ import os
 pygame.init()
 
 from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, ASSETS_PATH, CAR_WIDTH, CAR_HEIGHT, TOTAL_LAPS
-from gui import Container, TextInputBox, Button
+from gui import Container, TextLabel, Button, TextInputBox 
 from cars import Car, CarAgent
 from track import Track
 
@@ -309,6 +309,7 @@ class Game:
     def gameLoop(self):
         containerPosition = (0.25, 0)
         gameInfoContainer = Container(containerPosition[0], containerPosition[1], 0.5, 0.1, COLOUR_SCHEME[3], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
+        lapLabel = TextLabel(x, y, width, height, text, font, textColour)
 
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
 

@@ -17,6 +17,9 @@ class TextLabel(GuiElement):
     def draw(self, screen):
         screen.blit(self.text, self.text.get_rect(center=self.rect.center))
 
+    def updateText(self, newText):
+        self.text = self.font.render(newText, True, self.textColour)
+
 class Container(GuiElement):
     def __init__(self, x, y, width, height, backgroundColour, borderColour, borderThickness):
         super().__init__(x, y, width, height)
@@ -78,7 +81,7 @@ class TextInputBox(Button):
         elif event.unicode.isalnum():
             self.textContent += event.unicode
 
-        self.text = self.font.render(self.textContent, True, self.textColour)
+        self.updateText(self.textContent)
 
     def getText(self):
         return self.textContent
