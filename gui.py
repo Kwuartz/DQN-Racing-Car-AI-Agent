@@ -1,4 +1,4 @@
-from config import SCREEN_WIDTH, SCREEN_HEIGHT
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, BACKGROUND_COLOUR
 
 import pygame
 
@@ -19,6 +19,34 @@ class TextLabel(GuiElement):
 
     def updateText(self, newText):
         self.text = self.font.render(newText, True, self.textColour)
+
+class Minimap(GuiElement):
+    def __init__(self, x, y, width, height, track, borderColour, borderThickness):
+        super().__init__(x, y, width, height)
+        self.surface = pygame.Surface((self.rect.width, self.rect.height))
+        self.trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT))
+
+        self.trackSurface.fill(BACKGROUND_COLOUR)
+        track.draw(self.trackSurface, pygame.Vector2(0, 0))
+
+        self.scale = min(self.rect.width / TRACK_WIDTH, self.rect.height / TRACK_HEIGHT)
+        self.trackSurface = pygame.transform.scale(self.trackSurface, (self.rect.width, self.rect.height))
+
+        self.borderColour = borderColour
+        self.borderThickness = borderThickness
+
+        self.playerColour = (255, 0, 0)
+        self.agentColour = (255, 255, 0)
+        self.dotSize = 3
+
+    def draw(self, screen, player, agent):
+        self.surface.blit(self.trackSurface, (0, 0))
+        
+        pygame.draw.rect(self.surface, self.borderColour, self.rect, self.borderThickness)
+        pygame.draw.circle(self.surface, self.playerColour, (player.x * self.scale, player.y * self.scale), self.dotSize)
+        pygame.draw.circle(self.surface, self.agentColour, (agent.x * self.scale, agent.y * self.scale), self.dotSize)
+
+        screen.blit(self.surface, self.rect)
 
 class Container(GuiElement):
     def __init__(self, x, y, width, height, backgroundColour, borderColour, borderThickness):

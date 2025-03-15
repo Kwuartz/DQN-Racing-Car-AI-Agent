@@ -4,8 +4,8 @@ import os
 
 pygame.init()
 
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, ASSETS_PATH, CAR_WIDTH, CAR_HEIGHT, TOTAL_LAPS
-from gui import Container, TextLabel, Button, TextInputBox 
+from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, ASSETS_PATH, CAR_WIDTH, CAR_HEIGHT, TOTAL_LAPS, BACKGROUND_COLOUR
+from gui import Container, TextLabel, Button, TextInputBox, Minimap
 from cars import Car, CarAgent
 from track import Track
 
@@ -15,6 +15,8 @@ redCarImage = pygame.transform.scale(pygame.image.load(f"{ASSETS_PATH}/Cars/RedC
 
 # Initialising fonts
 font16 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 16)
+font32 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 32)
+font64 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 64)
 
 class Game:
     def __init__(self):
@@ -307,16 +309,20 @@ class Game:
         pass
 
     def gameLoop(self):
-        containerPosition = (0.25, 0)
-        gameInfoContainer = Container(containerPosition[0], containerPosition[1], 0.5, 0.1, COLOUR_SCHEME[3], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
-        lapLabel = TextLabel(x, y, width, height, text, font, textColour)
+        minimapCorner = (0.2, 0.2)
+        minimap = Minimap(0, 0, minimapCorner[0], minimapCorner[1], self.track, COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
+        
+        containerSize = (0.05, 0.05)
+        containerPosition = (minimapCorner[0] - containerSize[0], minimapCorner[1] - containerSize[1])
+        gameInfoContainer = Container(containerPosition[0], containerPosition[1], containerSize[0], containerSize[1], COLOUR_SCHEME[2], COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
+        lapLabel = TextLabel(containerPosition[0], containerPosition[1], containerSize[0], containerSize[1], f"Lap 1/{TOTAL_LAPS}", font16, COLOUR_SCHEME[0])
 
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
 
         playerCar = Car(spawnPoint[0], spawnPoint[1], spawnAngle, blueCarImage)
         agentCar = CarAgent(spawnPoint[0], spawnPoint[1], spawnAngle, redCarImage)
 
-        laps = 0
+        lap = 1
         cameraOffset = pygame.Vector2(0, 0)
 
         gameRunning = True
@@ -342,17 +348,26 @@ class Game:
             agentCar.update(self.deltaTime, self.track)
 
             # Check if game over
-            laps = max(playerCar.laps, agentCar.laps)
-            if laps >= TOTAL_LAPS:
+            newLap = max(playerCar.lap, agentCar.lap)
+            if lap != newLap:
+                lap = newLap
+                lapLabel.updateText(f"Lap {lap}/{TOTAL_LAPS}")
+            if lap > TOTAL_LAPS:
                 gameRunning = False
 
             cameraOffset = playerCar.getCameraOffset(cameraOffset)
             
-            self.screen.fill((8, 132, 28))
+            self.screen.fill(BACKGROUND_COLOUR)
             self.track.draw(self.screen, cameraOffset)
 
             playerCar.draw(self.screen, cameraOffset)
             agentCar.draw(self.screen, cameraOffset)
+
+            minimap.draw(self.screen, playerCar, agentCar)
+
+            gameInfoContainer.draw(self.screen)
+            lapLabel.draw(self.screen)
+            
 
             pygame.display.flip()
 

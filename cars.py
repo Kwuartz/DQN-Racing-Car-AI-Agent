@@ -19,7 +19,7 @@ class Car:
         self.x = x
         self.y = y
 
-        self.laps = 0
+        self.lap = 1
         self.checkpointIndex = 0
 
         self.speed = 0
@@ -133,8 +133,8 @@ class Car:
 
             if self.checkpointIndex > len(track.checkpoints) - 1:
                 self.checkpointIndex = 0
-                self.laps += 1
-                print(self.laps)
+                self.lap += 1
+                print(self.lap)
 
     def getCameraOffset(self, cameraOffset):
         xTrueOffset = self.x - SCREEN_WIDTH / 2

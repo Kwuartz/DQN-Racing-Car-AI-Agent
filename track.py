@@ -219,5 +219,5 @@ class Track:
             self.trackWidth = data["TrackWidth"]
             self.trackColour = data["TrackColour"]
     
-    def draw(self, screen, cameraOffset):
-        screen.blit(self.trackSurface, (-cameraOffset, (TRACK_WIDTH, TRACK_HEIGHT)))
+    def draw(self, screen, offset):
+        screen.blit(self.trackSurface, (-offset, (TRACK_WIDTH, TRACK_HEIGHT)))
