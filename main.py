@@ -4,7 +4,7 @@ import os
 
 pygame.init()
 
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, ASSETS_PATH, CAR_WIDTH, CAR_HEIGHT
+from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, ASSETS_PATH, CAR_WIDTH, CAR_HEIGHT, TOTAL_LAPS
 from gui import Container, TextInputBox, Button
 from cars import Car, CarAgent
 from track import Track
@@ -25,7 +25,6 @@ class Game:
         self.running = True
         self.clock = pygame.time.Clock()
         self.deltaTime = 1 / FPS
-        self.maxLaps = 2
 
         self.displayMainMenu()
 
@@ -307,19 +306,17 @@ class Game:
     def training(self):
         pass
 
-    def checkGameOver(self):
-        if self.playerCar.laps >= self.maxLaps:
-            return self.playerCar
-        elif self.agentCar.laps >= self.maxLaps:
-            return self.agentCar
-
     def gameLoop(self):
-        spawnPoint = self.track.getSpawnPoint()
+        containerPosition = (0.25, 0)
+        gameInfoContainer = Container(containerPosition[0], containerPosition[1], 0.5, 0.1, COLOUR_SCHEME[3], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
 
-        self.playerCar = Car(spawnPoint[0], spawnPoint[1], 0, blueCarImage)
-        self.agentCar = CarAgent(spawnPoint[0], spawnPoint[1], 0, redCarImage)
+        spawnPoint, spawnAngle = self.track.getSpawnPosition()
 
-        self.cameraOffset = pygame.Vector2(0, 0)
+        playerCar = Car(spawnPoint[0], spawnPoint[1], spawnAngle, blueCarImage)
+        agentCar = CarAgent(spawnPoint[0], spawnPoint[1], spawnAngle, redCarImage)
+
+        laps = 0
+        cameraOffset = pygame.Vector2(0, 0)
 
         gameRunning = True
         while self.running and gameRunning:
@@ -340,25 +337,25 @@ class Game:
             if keys[pygame.K_a] or keys[pygame.K_LEFT]:
                 turnDirection -= 1
 
-            self.playerCar.update(self.deltaTime, acceleration, turnDirection, self.track)
-            self.agentCar.update(self.deltaTime, self.track)
+            playerCar.update(self.deltaTime, acceleration, turnDirection, self.track)
+            agentCar.update(self.deltaTime, self.track)
 
-            winner = self.checkGameOver()
-            if winner:
-                pass
+            # Check if game over
+            laps = max(playerCar.laps, agentCar.laps)
+            if laps >= TOTAL_LAPS:
+                gameRunning = False
 
-            self.cameraOffset = self.playerCar.getCameraOffset(self.cameraOffset)
+            cameraOffset = playerCar.getCameraOffset(cameraOffset)
             
             self.screen.fill((8, 132, 28))
-            self.track.draw(self.screen, self.cameraOffset)
+            self.track.draw(self.screen, cameraOffset)
 
-            self.playerCar.draw(self.screen, self.cameraOffset)
-            self.agentCar.draw(self.screen, self.cameraOffset)
+            playerCar.draw(self.screen, cameraOffset)
+            agentCar.draw(self.screen, cameraOffset)
 
             pygame.display.flip()
 
             self.deltaTime = self.clock.tick(FPS) / 1000
-            print(1 / self.deltaTime)
 
 if __name__ == "__main__":
     Game()

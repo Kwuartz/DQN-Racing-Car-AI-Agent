@@ -20,11 +20,11 @@ class Car:
         self.y = y
 
         self.laps = 0
-        self.checkpoint = 0
+        self.checkpointIndex = 0
 
         self.speed = 0
-        self.wheelDirection = direction
-        self.direction = direction
+        self.direction = direction + 90
+        self.wheelDirection = self.direction
 
         self.image = image
         self.rotatedImage = pygame.transform.rotate(self.image, -self.direction)
@@ -32,8 +32,9 @@ class Car:
         self.maskOffset = (0, 0)
 
         self.rect = image.get_rect()
-        self.imageRect = self.rect
+        self.imageRect = self.rotatedImage.get_rect()
         self.rect.center = (x, y)
+        self.imageRect.center = self.rect.center
 
     def handleInputs(self, deltaTime, acceleration, steerDirection):
         if acceleration == 1:
@@ -71,8 +72,7 @@ class Car:
 
     def moveCar(self, deltaTime, track):
         if self.speed != 0 and self.wheelDirection != 0:
-            turningRadius = (self.rect.height * 4) / \
-                math.tan(math.radians(self.wheelDirection))
+            turningRadius = ((self.rect.height * 2.5) + (self.rect.height * 1.5) * (self.speed / self.maxSpeed)) / math.tan(math.radians(self.wheelDirection))
             angularVelocity = self.speed / turningRadius
             directionChange = math.degrees(angularVelocity * deltaTime)
 
@@ -109,6 +109,15 @@ class Car:
 
         return (overlapX or overlapY)
 
+    def collideCheckpoint(self, checkpoint):
+        innerRect = pygame.Rect(0, 0, self.rect.width // 2, self.rect.height // 2)
+        innerRect.center = self.rect.center
+
+        if innerRect.clipline(checkpoint[0], checkpoint[1]):
+            return True
+
+        return False
+
     def update(self, deltaTime, acceleration, steerDirection, track):
         self.track = track
         self.handleInputs(deltaTime, acceleration, steerDirection)
@@ -116,6 +125,16 @@ class Car:
         collision = self.moveCar(deltaTime, track)
         if collision:
             self.speed = 0
+
+        nextCheckpoint = track.checkpoints[self.checkpointIndex]
+        if self.collideCheckpoint(nextCheckpoint):
+            self.checkpointIndex += 1
+            print(self.checkpointIndex)
+
+            if self.checkpointIndex > len(track.checkpoints) - 1:
+                self.checkpointIndex = 0
+                self.laps += 1
+                print(self.laps)
 
     def getCameraOffset(self, cameraOffset):
         xTrueOffset = self.x - SCREEN_WIDTH / 2
@@ -190,6 +209,7 @@ class CarAgent(Car):
                 if track.checkCollideAtPoint(position):
                     sensorDistance = distance
                     break
+                
             distances.append(sensorDistance)
         
         return distances

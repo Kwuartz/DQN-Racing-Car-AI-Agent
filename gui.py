@@ -2,12 +2,25 @@ from config import SCREEN_WIDTH, SCREEN_HEIGHT
 
 import pygame
 
-class Container:
-    def __init__(self, x, y, width, height, backgroundColour, borderColour, borderThickness):
+class GuiElement:
+    def __init__(self, x, y, width, height):
         self.rect = pygame.Rect(SCREEN_WIDTH * x, SCREEN_HEIGHT * y, SCREEN_WIDTH * width, SCREEN_HEIGHT * height)
 
-        self.backgroundColour = backgroundColour
+class TextLabel(GuiElement):
+    def __init__(self, x, y, width, height, text, font, textColour):
+        super().__init__(x, y, width, height)
         
+        self.font = font
+        self.textColour = textColour
+        self.text = font.render(text, True, textColour)
+
+    def draw(self, screen):
+        screen.blit(self.text, self.text.get_rect(center=self.rect.center))
+
+class Container(GuiElement):
+    def __init__(self, x, y, width, height, backgroundColour, borderColour, borderThickness):
+        super().__init__(x, y, width, height)
+        self.backgroundColour = backgroundColour        
         self.borderColour = borderColour
         self.borderThickness = borderThickness
 
@@ -15,13 +28,13 @@ class Container:
         pygame.draw.rect(screen, self.backgroundColour, self.rect)
         pygame.draw.rect(screen, self.borderColour, self.rect, self.borderThickness)
 
-class Button:
+class Button(TextLabel):
     def __init__(self, x, y, width, height, text, font, textColour, backgroundColour, borderColour, borderThickness, hoverBorderThickness=0, selectedBackgroundColour=(0,0,0)):
+        super().__init__(x, y, width, height, text, font, textColour)
+        
         self.font = font
         self.textColour = textColour
-
         self.text = font.render(text, True, textColour)
-        self.rect = pygame.Rect(SCREEN_WIDTH * x, SCREEN_HEIGHT * y, SCREEN_WIDTH * width, SCREEN_HEIGHT * height)
 
         self.backgroundColour = backgroundColour
         self.normalBackgroundColour = backgroundColour
@@ -35,7 +48,7 @@ class Button:
     def draw(self, screen):
         pygame.draw.rect(screen, self.backgroundColour, self.rect)
         pygame.draw.rect(screen, self.borderColour, self.rect, self.borderThickness)
-        screen.blit(self.text, self.text.get_rect(center=self.rect.center))
+        super().draw(screen)
 
     def moveButton(self, x, y):
         self.rect.x = SCREEN_WIDTH * x
@@ -56,8 +69,8 @@ class Button:
 
 class TextInputBox(Button):
     def __init__(self, x, y, width, height, text, font, textColour, backgroundColour, borderColour, borderThickness, hoverBorderThickness=0, selectedBackgroundColour=(0,0,0)):
-        self.textContent = text
         super().__init__(x, y, width, height, text, font, textColour, backgroundColour, borderColour, borderThickness, hoverBorderThickness, selectedBackgroundColour)
+        self.textContent = text
 
     def update(self, event):
         if event.key == pygame.K_BACKSPACE:

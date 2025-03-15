@@ -1,11 +1,8 @@
-from config import TRACK_WIDTH, TRACK_HEIGHT, ASSETS_PATH, CAR_WIDTH, CAR_HEIGHT, COLOUR_SCHEME
+from config import TRACK_WIDTH, TRACK_HEIGHT, ASSETS_PATH, COLOUR_SCHEME
 
 import pygame
 import math
 import json
-
-# Loading car images
-spawnCarImage = pygame.transform.scale(pygame.image.load(f"{ASSETS_PATH}/Cars/SpawnCar.png"), (CAR_WIDTH, CAR_HEIGHT))
 
 # Initialising fonts
 font32 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 32)
@@ -24,8 +21,8 @@ class Track:
             self.trackWidth = 250
             self.trackColour = (50, 50, 50)
 
+        self.curves = None
         self.checkpoints = None
-        self.finishLine = None
 
         self.minCurvePoints = 50
         self.pointDensity = 25
@@ -36,11 +33,6 @@ class Track:
 
         self.checkpointThickness = 10
         self.checkpointColour = (255, 255, 0)
-        self.finishLineColour = (255, 0, 255)
-
-        self.spawnImage = spawnCarImage
-        self.spawnRect = self.spawnImage.get_rect()
-        self.spawnRect.center = self.spawnPoint
 
         self.pointRadius = 15
         self.pointColour = (255, 0, 0)
@@ -52,20 +44,14 @@ class Track:
         self.lineColour = COLOUR_SCHEME[1]
         self.connectingLineColour = COLOUR_SCHEME[0]
 
-    def getSpawnPoint(self):
-        return self.spawnPoint
-
     def addPoint(self, pos):
         self.points.append(pos)
 
     def movePoint(self, index, newPosition):
-        if index == "spawn":
-            self.spawnPoint = newPosition
-        else:
-            self.points[index] = newPosition
+        self.points[index] = newPosition
 
     def removePoint(self, index=-1):
-        if len(self.points) > 0 and index != "spawn":
+        if len(self.points) > 0:
             self.points.pop(index)
 
     def getPoints(self):
@@ -75,9 +61,6 @@ class Track:
         for index, point in enumerate(self.points):
             if math.dist(mousePosition, point) < self.pointRadius:
                 return index
-
-        if self.spawnRect.collidepoint(mousePosition):
-            return "spawn"
 
     def getLines(self):
         lines = []
@@ -90,7 +73,7 @@ class Track:
     def getCurve(self, points):
         curve = []
         curvePoints = self.minCurvePoints
-        print(points)
+
         distance = math.dist(points[1], points[2])
         if distance > 1000:
             curvePoints = int(distance / self.pointDensity)
@@ -120,13 +103,6 @@ class Track:
         curves = []
 
         if len(self.points) > 3:
-            """for i in range(len(self.points) - 3):
-                curves.append(self.getCurve(self.points[i:i + 4]))
-
-            for i in range(3):
-                curves.append(self.getCurve(self.points[i-3:] + self.points[:i+1]))"""
-            
-            
             curves.append(self.getCurve([self.points[-1]] + self.points[:3]))
             
             for i in range(len(self.points) - 3):
@@ -151,17 +127,6 @@ class Track:
 
                     offset = perpendicularDirection * self.trackWidth
                     checkpoints.append((point1 + offset, point1 - offset))
-
-        """for curve in curves:
-            midpoint = len(curve) // 2
-            point1 = pygame.Vector2(curve[midpoint])
-            point2 = pygame.Vector2(curve[midpoint + 1])
-
-            difference = point2 - point1
-            perpendicularDirection = pygame.Vector2(-difference.y, difference.x).normalize()
-
-            offset = perpendicularDirection * self.trackWidth
-            checkpoints.append((point1 + offset, point1 - offset))"""
 
         return checkpoints
 
@@ -192,30 +157,37 @@ class Track:
             checkpointLabel = font64.render(f"C{index}", True, self.pointLabelColour)
             screen.blit(checkpointLabel, pygame.Vector2(checkpoint[0], checkpoint[1]) + self.pointLabelOffset)
 
-            if index == len(checkpoints) - 2:
-                pygame.draw.line(screen, self.finishLineColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
-            else:
-                pygame.draw.line(screen, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
+            pygame.draw.line(screen, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
 
-        self.spawnRect.center = self.spawnPoint
-        screen.blit(self.spawnImage, self.spawnRect)
-    
+    def getSpawnPosition(self):
+        if self.curves:
+            point1 = pygame.Vector2(self.curves[-2][-2][0], self.curves[-2][-2][1])
+            point2 = pygame.Vector2(self.curves[-2][-1][0], self.curves[-2][-1][1])
+
+            difference = point2 - point1
+            angle = math.degrees(math.atan2(difference.y, difference.x))
+
+        return point1, angle
+
     def initialiseTrack(self):
-        curves = self.getCurves()
+        self.curves = self.getCurves()
+        self.checkpoints = self.getCheckpoints(self.curves)
 
-        self.checkpoints = self.getCheckpoints(curves)
-        self.finishLine = self.checkpoints[-2]
-
+        # Adding more curve points when creating final surface
         self.pointDensity = self.finalPointDensity
-        curves = self.getCurves()
+        finalCurves = self.getCurves()
 
         self.trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT), pygame.SRCALPHA)
-        self.drawCircles(self.trackSurface, curves)
+        self.drawCircles(self.trackSurface, finalCurves)
+
+        for index, checkpoint in enumerate(self.checkpoints):
+            checkpointLabel = font64.render(f"C{index}", True, self.pointLabelColour)
+            self.trackSurface.blit(checkpointLabel, pygame.Vector2(checkpoint[0], checkpoint[1]) + self.pointLabelOffset)
+
+            pygame.draw.line(self.trackSurface, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
 
         self.mask = pygame.mask.from_surface(self.trackSurface)
         self.mask.invert()
-
-        
 
     def getOverlap(self, x, y, mask):
         overlap = self.mask.overlap(mask, (x, y))
