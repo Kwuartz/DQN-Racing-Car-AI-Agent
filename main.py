@@ -10,6 +10,8 @@ from gui import Container, TextLabel, Button, TextInputBox, Minimap
 from cars import Car, CarAgent
 from track import Track
 
+# I WANNA USE NAMED TUPLES FOR POSITION AND SIZE IT SEEMS NICE BUT NOT SURE WHEN TO USE THEM AND WHEN TO USE PYGAME VECTOR 2
+
 # Loading car images
 blueCarImage = pygame.transform.scale(pygame.image.load(f"{ASSETS_PATH}/Cars/BlueCar.png"), (CAR_WIDTH, CAR_HEIGHT))
 redCarImage = pygame.transform.scale(pygame.image.load(f"{ASSETS_PATH}/Cars/RedCar.png"), (CAR_WIDTH, CAR_HEIGHT))
@@ -86,28 +88,27 @@ class Game:
         buttons = [backButton, selectButton]
 
         # Creating the track selection scroll menu
-        containerPosition = (0.25, 0.05)
-        offScreenPosition = (2, 2)
-        buttonLength = 0.48
-        buttonHeight = 0.13
-        buttonPadding = (0.01, 0.01 * (SCREEN_WIDTH / SCREEN_HEIGHT))
+        containerPosition = pygame.Vector2(0.25, 0.05)
+        offScreenPosition = pygame.Vector2(2, 2)
+        buttonSize = pygame.Vector2(0.48, 0.13)
+        buttonPadding = pygame.Vector2(0.01, 0.01 * (SCREEN_WIDTH / SCREEN_HEIGHT))
         tracksPerPage = 6
         scrollIndex = 0
 
-        trackButtonsContainer = Container(containerPosition[0], containerPosition[1], buttonLength + buttonPadding[0] * 2, buttonHeight * (tracksPerPage) + buttonPadding[1] * (tracksPerPage + 1), COLOUR_SCHEME[3], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
+        trackButtonsContainer = Container(containerPosition.x, containerPosition.y, buttonSize.x + buttonPadding.x * 2, (buttonSize.y * (tracksPerPage)) + (buttonPadding.y * (tracksPerPage + 1)), COLOUR_SCHEME[3], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
         
         trackButtons = []
 
         # New track button
         if allowNewTrack:
-            newTrackButton = Button(0, 0, buttonLength, buttonHeight, "New Track", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
+            newTrackButton = Button(0, 0, buttonSize.x, buttonSize.y, "New Track", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
             trackButtons.append(newTrackButton)
 
         # Creating track buttons from diirectory
         trackPaths = os.listdir(f"{ASSETS_PATH}/Tracks")
         for trackPath in trackPaths:
             strippedPath = trackPath[:-5]
-            trackButton = Button(0, 0, buttonLength, buttonHeight, strippedPath, font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
+            trackButton = Button(0, 0, buttonSize.x, buttonSize.y, strippedPath, font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
             trackButtons.append(trackButton)
 
         selectedTrack = 0
@@ -174,9 +175,10 @@ class Game:
                 for index, button in enumerate(trackButtons):
                     if index in range(scrollIndex, scrollIndex + tracksPerPage):
                         relativeIndex = index - scrollIndex
-                        button.moveButton(containerPosition[0] + buttonPadding[0], containerPosition[1] + buttonPadding[1] * (relativeIndex + 1) + buttonHeight * relativeIndex)
+                        paddedPosition = containerPosition + buttonPadding
+                        button.moveButton(paddedPosition.x, paddedPosition.y + (buttonPadding.y + buttonSize.y) * relativeIndex)
                     else:
-                        button.moveButton(offScreenPosition[0], offScreenPosition[1])
+                        button.moveButton(offScreenPosition.x, offScreenPosition.y)
 
             # Drawing buttons and scroll container
             self.screen.fill((8, 132, 28))
@@ -224,7 +226,8 @@ class Game:
 
             # Scaling the mouse position so nodes are placed down accurately
             mousePosition = pygame.mouse.get_pos()
-            scaledMousePosition = (mousePosition[0] * zoom, mousePosition[1] * zoom)
+            mousePosition = pygame.Vector2(mousePosition[0], mousePosition[1])
+            scaledMousePosition = mousePosition * zoom
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -306,22 +309,19 @@ class Game:
 
             self.deltaTime = self.clock.tick(FPS) / 1000
 
-    def training(self):
-        pass
-
     def gameLoop(self):
-        minimapCorner = (0.2, 0.2)
-        minimap = Minimap(0, 0, minimapCorner[0], minimapCorner[1], self.track, COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
+        minimapSize = pygame.Vector2(0.2, 0.2)
+        minimap = Minimap(0, 0, minimapSize.x, minimapSize.y, self.track, COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
         
-        containerSize = (0.05, 0.05)
-        containerPosition = (minimapCorner[0] - containerSize[0], minimapCorner[1] - containerSize[1])
-        gameInfoContainer = Container(containerPosition[0], containerPosition[1], containerSize[0], containerSize[1], COLOUR_SCHEME[2], COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
-        lapLabel = TextLabel(containerPosition[0], containerPosition[1], containerSize[0], containerSize[1], f"Lap 1/{TOTAL_LAPS}", font16, COLOUR_SCHEME[0])
+        containerSize = pygame.Vector2(0.05, 0.05)
+        containerPosition = minimapSize - containerSize
+        gameInfoContainer = Container(containerPosition.x, containerPosition.y, containerSize.x, containerSize.y, COLOUR_SCHEME[2], COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
+        lapLabel = TextLabel(containerPosition.x, containerPosition.x, containerSize.x, containerSize.y, f"Lap 1/{TOTAL_LAPS}", font16, COLOUR_SCHEME[0])
 
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
 
-        playerCar = Car(spawnPoint[0], spawnPoint[1], spawnAngle, blueCarImage)
-        agentCar = CarAgent(spawnPoint[0], spawnPoint[1], spawnAngle, redCarImage)
+        playerCar = Car(spawnPoint.x, spawnPoint.y, spawnAngle, blueCarImage)
+        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, redCarImage)
 
         lap = 1
         cameraOffset = pygame.Vector2(0, 0)
@@ -368,11 +368,13 @@ class Game:
 
             gameInfoContainer.draw(self.screen)
             lapLabel.draw(self.screen)
-            
 
             pygame.display.flip()
 
             self.deltaTime = self.clock.tick(FPS) / 1000
+
+    def training(self):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if __name__ == "__main__":
     Game()

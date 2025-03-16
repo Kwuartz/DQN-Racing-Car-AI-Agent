@@ -44,8 +44,8 @@ class Track:
         self.lineColour = COLOUR_SCHEME[1]
         self.connectingLineColour = COLOUR_SCHEME[0]
 
-    def addPoint(self, pos):
-        self.points.append(pos)
+    def addPoint(self, position):
+        self.points.append(position)
 
     def movePoint(self, index, newPosition):
         self.points[index] = newPosition
@@ -82,20 +82,20 @@ class Track:
             t = index / curvePoints
 
             x = 0.5 * (
-                (2 * points[1][0]) +
-                (-points[0][0] + points[2][0]) * t +
-                (2 * points[0][0] - 5 * points[1][0] + 4 * points[2][0] - points[3][0]) * t**2 +
-                (-points[0][0] + 3 * points[1][0] - 3 * points[2][0] + points[3][0]) * t**3
+                (2 * points[1].x) +
+                (-points[0].x + points[2].x) * t +
+                (2 * points[0].x - 5 * points[1].x + 4 * points[2].x - points[3].x) * t**2 +
+                (-points[0].x + 3 * points[1].x - 3 * points[2].x + points[3].x) * t**3
             )
 
             y = 0.5 * (
-                (2 * points[1][1]) +
-                (-points[0][1] + points[2][1]) * t +
-                (2 * points[0][1] - 5 * points[1][1] + 4 * points[2][1] - points[3][1]) * t**2 +
-                (-points[0][1] + 3 * points[1][1] - 3 * points[2][1] + points[3][1]) * t**3
+                (2 * points[1].y) +
+                (-points[0].y + points[2].y) * t +
+                (2 * points[0].y - 5 * points[1].y + 4 * points[2].y - points[3].y) * t**2 +
+                (-points[0].y + 3 * points[1].y - 3 * points[2].y + points[3].y) * t**3
             )
 
-            curve.append((x, y))
+            curve.append(pygame.Vector2(x, y))
 
         return curve
 
@@ -155,14 +155,14 @@ class Track:
         checkpoints = self.getCheckpoints(curves)
         for index, checkpoint in enumerate(checkpoints):
             checkpointLabel = font64.render(f"C{index}", True, self.pointLabelColour)
-            screen.blit(checkpointLabel, pygame.Vector2(checkpoint[0], checkpoint[1]) + self.pointLabelOffset)
+            screen.blit(checkpointLabel, checkpoint[0] + self.pointLabelOffset)
 
             pygame.draw.line(screen, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
 
     def getSpawnPosition(self):
         if self.curves:
-            point1 = pygame.Vector2(self.curves[-2][-2][0], self.curves[-2][-2][1])
-            point2 = pygame.Vector2(self.curves[-2][-1][0], self.curves[-2][-1][1])
+            point1 = pygame.Vector2(self.curves[-2][-2].x, self.curves[-2][-2].y)
+            point2 = pygame.Vector2(self.curves[-2][-1].x, self.curves[-2][-1].y)
 
             difference = point2 - point1
             angle = math.degrees(math.atan2(difference.y, difference.x))
@@ -182,7 +182,8 @@ class Track:
 
         for index, checkpoint in enumerate(self.checkpoints):
             checkpointLabel = font64.render(f"C{index}", True, self.pointLabelColour)
-            self.trackSurface.blit(checkpointLabel, pygame.Vector2(checkpoint[0], checkpoint[1]) + self.pointLabelOffset)
+            print(checkpoint[0])
+            self.trackSurface.blit(checkpointLabel, checkpoint[0] + self.pointLabelOffset)
 
             pygame.draw.line(self.trackSurface, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
 
@@ -200,6 +201,13 @@ class Track:
         return self.filePath
 
     def exportTrack(self, filePath):
+        # Converting from Pygame.Vector2(x, y) -> tuple (x, y) to be stored 
+        points = []
+        for point in self.points:
+            points.append((point.x, point.y))
+
+        spawnPoint = (self.spawnPoint.x, self.spawnPoint.y)
+
         output = {
             "Points": self.points,
             "SpawnPoint": self.spawnPoint,
@@ -213,9 +221,17 @@ class Track:
     def importTrack(self, filePath):
         with open(f"{ASSETS_PATH}/Tracks/{filePath}.json", "r") as file:
             data = json.load(file)
+            
+            # Converting from tuple (x, y) -> Pygame.Vector2(x, y) to be imported 
+            points = data["Points"]
+            spawnPoint = data["SpawnPoint"]
 
-            self.points = data["Points"]
-            self.spawnPoint = data["SpawnPoint"]
+            self.points = []
+            for point in points:
+                self.points.append(pygame.Vector2(point[0], point[1]))
+
+            self.spawnPoint = pygame.Vector2(spawnPoint[0], spawnPoint[1])
+
             self.trackWidth = data["TrackWidth"]
             self.trackColour = data["TrackColour"]
     
