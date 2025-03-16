@@ -72,7 +72,7 @@ class Car:
 
     def moveCar(self, deltaTime, track):
         if self.speed != 0 and self.wheelDirection != 0:
-            turningRadius = ((self.rect.height * 2.5) + (self.rect.height * 1.5) * (self.speed / self.maxSpeed)) / math.tan(math.radians(self.wheelDirection))
+            turningRadius = ((self.rect.height * 3.5) + (self.rect.height * 1.5) * (self.speed / self.maxSpeed)) / math.tan(math.radians(self.wheelDirection))
             angularVelocity = self.speed / turningRadius
             directionChange = math.degrees(angularVelocity * deltaTime)
 

@@ -115,7 +115,7 @@ class Track:
 
     def getCheckpoints(self, curves):
         checkpoints = []
-
+        # restor midpoint code so if there is not enough points in a curve we can add a checkpoint at midpoint of a curve
         for curve in curves:
             for index in range(len(curve) - self.checkpointOffset * 2 - 1):
                 if (index + self.checkpointOffset) % self.checkpointFrequency == 0:
