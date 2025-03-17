@@ -7,6 +7,7 @@ pygame.init()
 from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, ASSETS_PATH, CAR_WIDTH, CAR_HEIGHT, TOTAL_LAPS, BACKGROUND_COLOUR
 from gui import Container, TextLabel, Button, TextInputBox, Minimap
 from cars import Car, CarAgent
+from model import DQNTrainer
 from track import Track
 
 # I WANNA USE NAMED TUPLES FOR POSITION AND SIZE IT SEEMS NICE BUT NOT SURE WHEN TO USE THEM AND WHEN TO USE PYGAME VECTOR 2
@@ -65,7 +66,10 @@ class Game:
                             while self.trackSelection(True):
                                 self.trackEditor()
                         elif hoveredButton == trainButton:
-                            pass
+                            trackSelected = self.trackSelection()
+                            if trackSelected:
+                                self.track.initialiseTrack()
+                                self.training()
                         elif hoveredButton == exitButton:
                             self.running = False
 
@@ -294,7 +298,7 @@ class Game:
 
             # Only update the track if neccessary to save computing power
             if updateTrack:
-                trackSurface.fill((8, 132, 28))
+                trackSurface.fill(BACKGROUND_COLOUR)
                 self.track.drawEditor(trackSurface)
 
             # Scaling the track surface and drawing it
@@ -370,7 +374,11 @@ class Game:
 
             pygame.display.flip()
 
-            self.deltaTime = self.clock.tick(FPS) / 1000  
+            self.deltaTime = self.clock.tick(FPS) / 1000
+
+    def training(self):
+        trainer = DQNTrainer(self.screen, self.track, redCarImage)
+        trainer.train()
 
 if __name__ == "__main__":
     Game()

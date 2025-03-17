@@ -228,7 +228,9 @@ class CarAgent(Car):
 
             return accelerationAction, turningAction
 
-    def update(self, deltaTime, state, steps=None):
+    def update(self, deltaTime, track, steps=None):
+        state = self.getState(track)
+        
         if steps:
             reward = 0
             terminated = False
