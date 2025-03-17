@@ -370,10 +370,7 @@ class Game:
 
             pygame.display.flip()
 
-            self.deltaTime = self.clock.tick(FPS) / 1000
-
-    def training(self):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.deltaTime = self.clock.tick(FPS) / 1000  
 
 if __name__ == "__main__":
     Game()
