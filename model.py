@@ -1,15 +1,13 @@
-import math
-import random
-import matplotlib
-import matplotlib.pyplot as plt
 from collections import namedtuple, deque
-from itertools import count
+import random
+import pygame
+import math
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from config import BATCH_SIZE, GAMMA, TAU, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, TRACK_WIDTH
+from config import BATCH_SIZE, GAMMA, TAU, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, TRACK_WIDTH, MAX_TIME_STEPS_PER_EPISODE
 from cars import CarAgent
 
 Transition = namedtuple("Transition", ("state", "action", "nextState", "reward"))
@@ -76,17 +74,17 @@ class DQNTrainer:
 
         # Concatenating tensors
         stateBatch = torch.cat(batch.state)
-        actionBatch = torch.cat(batch.action)
+        actionBatch = torch.stack(batch.action)
         rewardBatch = torch.cat(batch.reward)
 
         # Calculate and gather Q-Values for each action
-        stateActionQValues = policyNet(stateBatch)
+        stateActionQValues = self.policyNet(stateBatch)
 
         # Separate Q-values for acceleration and turning
         accelerationQValues = stateActionQValues[:, :3]
         turningQValues = stateActionQValues[:, 3:]
 
-        # Get the action for each and shift from -1, 0, 1 -> 0, 1, 2 
+        # Get the action for each and shift from -1, 0, 1 -> 0, 1, 2
         accelerationActions = actionBatch[:, 0] + 1
         turningActions = actionBatch[:, 1] + 1
 
@@ -100,7 +98,7 @@ class DQNTrainer:
         # Calculate target Q-Values for the next state
         nextStateValues = torch.zeros(BATCH_SIZE, device=self.device)
         with torch.no_grad():
-            nextStateValues[nonFinalMask] = targetNet(nonFinalNextStates).max(1).values
+            nextStateValues[nonFinalMask] = self.targetNet(nonFinalNextStates).max(1).values
 
         # Compute the expected Q-Values
         expectedStateActionValues = (nextStateValues * GAMMA) + rewardBatch
@@ -122,26 +120,17 @@ class DQNTrainer:
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
 
         for episodeIndex in range(episodes):
-            agentCar = CarAgent(
-                spawnPoint.x,
-                spawnPoint.y,
-                spawnAngle,
-                self.carImage,
-                self.policyNet,
-                self.device,
-                True
-            )
+            agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, self.carImage, self.policyNet, self.device)
 
             state = agentCar.getState(self.track)
             state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
 
-            for t in count():
+            for timeStep in range(MAX_TIME_STEPS_PER_EPISODE):
                 steps += 1
-                action, nextState, reward, terminated, truncated = agentCar.update(TRAINING_TIMESTEP, self.track, steps)
-
+                action, nextState, reward, terminated = agentCar.update(TRAINING_TIMESTEP, self.track, steps)
+        
+                action = torch.tensor(action, device=self.device, dtype=torch.long)
                 reward = torch.tensor([reward], device=self.device)
-                done = terminated or truncated
-
                 if terminated:
                     nextState = None
                 else:
@@ -159,8 +148,8 @@ class DQNTrainer:
                 # Soft update target network
                 self.softUpdateTargetNetwork()
 
-                if done:
-                    print(f"Episode {episodeIndex + 1} finished after {t + 1} timesteps.")
+                if terminated or timeStep == MAX_TIME_STEPS_PER_EPISODE:
+                    print(f"Episode {episodeIndex + 1} finished after {timeStep + 1} timesteps.")
                     break
             
             if episodeIndex % 10 == 0:
@@ -177,10 +166,10 @@ class DQNTrainer:
 
     def visualizeEpisode(self):
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
-        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, redCarImage, policyNet, device, training=False)
+        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, self.carImage, self.policyNet, self.device)
 
         clock = pygame.time.Clock()
-        deltaTime = self.clock.tick(FPS) / 1000
+        deltaTime = clock.tick(FPS) / 1000
 
         trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT))
         self.track.draw(trackSurface)
@@ -201,4 +190,4 @@ class DQNTrainer:
             
             pygame.display.flip()
 
-            self.deltaTime = self.clock.tick(FPS) / 1000
+            deltaTime = clock.tick(FPS) / 1000

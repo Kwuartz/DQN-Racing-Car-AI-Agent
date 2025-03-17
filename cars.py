@@ -175,7 +175,7 @@ class Car:
         self.getDistances(screen, cameraOffset)
 
 class CarAgent(Car):
-    def __init__(self, x, y, direction, image, model, device, training):
+    def __init__(self, x, y, direction, image, model, device):
         super().__init__(x, y, direction, image)
         
         self.sensors= [
@@ -188,7 +188,7 @@ class CarAgent(Car):
         self.model = model
         self.device = device
 
-    def getDistances(self, track, maxDistance=400):
+    def getDistances(self, track, maxDistance=600):
         distances = []
 
         for sensor in self.sensors:
@@ -236,7 +236,6 @@ class CarAgent(Car):
         if steps:
             reward = 0
             terminated = False
-            truncated = False
 
             # Value 0 - 1 to be compared to epsilon threshold
             sample = random.random()
@@ -261,6 +260,7 @@ class CarAgent(Car):
 
             if steps:
                 reward += CRASH_REWARD
+                terminated = True
 
         nextCheckpoint = track.checkpoints[self.checkpointIndex]
         if self.collideCheckpoint(nextCheckpoint):
@@ -275,13 +275,12 @@ class CarAgent(Car):
 
                 if steps:
                     reward += LAP_REWARD
+                    terminated = True
 
-        print(steps)
         if steps:
             nextState = self.getState(track)
-            action = (torch.tensor([accelerationAction], device=self.device, dtype=torch.long), torch.tensor([turningAction], device=self.device, dtype=torch.long))
-            print(action, nextState, reward, terminated, truncated)
-            return action, nextState, reward, terminated, truncated
+            action = accelerationAction, turningAction
+            return action, nextState, reward, terminated
             
     def draw(self, screen, cameraOffset):
         screen.blit(self.rotatedImage, (self.imageRect.x - cameraOffset[0], self.imageRect.y - cameraOffset[1]))
