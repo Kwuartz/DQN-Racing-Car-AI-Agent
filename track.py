@@ -182,7 +182,6 @@ class Track:
 
         for index, checkpoint in enumerate(self.checkpoints):
             checkpointLabel = font64.render(f"C{index}", True, self.pointLabelColour)
-            print(checkpoint[0])
             self.trackSurface.blit(checkpointLabel, checkpoint[0] + self.pointLabelOffset)
 
             pygame.draw.line(self.trackSurface, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)

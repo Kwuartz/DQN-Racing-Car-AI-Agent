@@ -1,6 +1,7 @@
-from config import CAMERA_SCROLL_SPEED, ASSETS_PATH, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, LAP_REWARD, CRASH_REWARD
+from config import CAMERA_SCROLL_SPEED, ASSETS_PATH, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, LAP_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY
 
 import pygame
+import torch
 import random
 import math
 
@@ -113,7 +114,7 @@ class Car:
         innerRect = pygame.Rect(0, 0, self.rect.width // 2, self.rect.height // 2)
         innerRect.center = self.rect.center
 
-        if innerRect.clipline(checkpoint.x, checkpoint.y):
+        if innerRect.clipline(checkpoint[0], checkpoint[1]):
             return True
 
         return False
@@ -230,7 +231,8 @@ class CarAgent(Car):
 
     def update(self, deltaTime, track, steps=None):
         state = self.getState(track)
-        
+        state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
+
         if steps:
             reward = 0
             terminated = False
@@ -240,7 +242,7 @@ class CarAgent(Car):
             sample = random.random()
 
             # Calculating epsilon threshold
-            epsthreshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps / EPS_DECAY)
+            epsThreshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps / EPS_DECAY)
 
             steps += 1
             if sample > epsThreshold:
@@ -251,7 +253,7 @@ class CarAgent(Car):
         else:
             accelerationAction, turningAction = self.selectAction(state)
 
-        self.handleInputs(deltaTime, random.randint(accelerationAction, turningAction), 1)
+        self.handleInputs(deltaTime, accelerationAction, turningAction)
         
         collision = self.moveCar(deltaTime, track)
         if collision:
@@ -274,9 +276,11 @@ class CarAgent(Car):
                 if steps:
                     reward += LAP_REWARD
 
-        if self.training:
+        print(steps)
+        if steps:
             nextState = self.getState(track)
-            action = (torch.tensor([accelerationAction], device=device, dtype=torch.long), torch.tensor([turningAction], device=device, dtype=torch.long))
+            action = (torch.tensor([accelerationAction], device=self.device, dtype=torch.long), torch.tensor([turningAction], device=self.device, dtype=torch.long))
+            print(action, nextState, reward, terminated, truncated)
             return action, nextState, reward, terminated, truncated
             
     def draw(self, screen, cameraOffset):

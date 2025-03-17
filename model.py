@@ -9,7 +9,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from config import BATCH_SIZE, GAMMA, EPS_START, EPS_END, EPS_DECAY, TAU, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, TRACK_WIDTH
+from config import BATCH_SIZE, GAMMA, TAU, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, TRACK_WIDTH
+from cars import CarAgent
 
 Transition = namedtuple("Transition", ("state", "action", "nextState", "reward"))
 
@@ -28,7 +29,7 @@ class ReplayMemory:
 
 class NeuralNetwork(nn.Module):
     def __init__(self, inputs, outputs):
-        super(DQN, self).__init__()
+        super(NeuralNetwork, self).__init__()
         self.layer1 = nn.Linear(inputs, 128)
         self.layer2 = nn.Linear(128, 128)
         self.layer3 = nn.Linear(128, outputs)
@@ -42,7 +43,7 @@ class DQNTrainer:
     def __init__(self, screen, track, carImage):
         self.screen = screen
         self.track = track
-        self.carImage = image
+        self.carImage = carImage
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -58,7 +59,7 @@ class DQNTrainer:
         self.memory = ReplayMemory(10000)
     
     def optimizeModel(self):
-        if len(self.memory) < self.BATCH_SIZE:
+        if len(self.memory) < BATCH_SIZE:
             return
 
         # Sampling transitions
@@ -135,8 +136,8 @@ class DQNTrainer:
             state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
 
             for t in count():
-                action, nextState, reward, terminated, truncated = agentCar.update(TRAINING_TIMESTEP, track, steps)
                 steps += 1
+                action, nextState, reward, terminated, truncated = agentCar.update(TRAINING_TIMESTEP, self.track, steps)
 
                 reward = torch.tensor([reward], device=self.device)
                 done = terminated or truncated
@@ -170,7 +171,7 @@ class DQNTrainer:
         policyNetStateDict = self.policyNet.state_dict()
 
         for key in policyNetStateDict:
-            targetNetStateDict[key] = policyNetStateDict[key] * self.TAU + targetNetStateDict[key] * (1.0 - self.TAU)
+            targetNetStateDict[key] = policyNetStateDict[key] * TAU + targetNetStateDict[key] * (1.0 - TAU)
 
         self.targetNet.load_state_dict(targetNetStateDict)
 
@@ -201,5 +202,3 @@ class DQNTrainer:
             pygame.display.flip()
 
             self.deltaTime = self.clock.tick(FPS) / 1000
-
-    print("Visualization complete.")
