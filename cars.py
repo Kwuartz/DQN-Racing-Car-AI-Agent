@@ -1,4 +1,4 @@
-from config import CAMERA_SCROLL_SPEED, ASSETS_PATH, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, LAP_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY, MAX_IDLE_TIMESTEPS, SPEED_THRESHOLD
+from config import CAMERA_SCROLL_SPEED, ASSETS_PATH, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, LAP_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY, MAX_IDLE_TIMESTEPS, SPEED_THRESHOLD, IDLE_REWARD
 
 import pygame
 import torch
@@ -280,22 +280,20 @@ class CarAgent(Car):
                 if self.training:
                     reward += LAP_REWARD
                     terminated = True
-                else:
-                    print("hi")
-
+        
         if self.training:
             if self.speed < SPEED_THRESHOLD:
-                reward -= 5
+                reward -= 1
 
             nextState = self.getState(track)
             action = accelerationAction, turningAction
 
             self.idleTimesteps += 1
             if reward > 0:
-                print(self.idleTimesteps)
                 self.idleTimesteps = 0
             if self.idleTimesteps >= MAX_IDLE_TIMESTEPS:
                 truncated = True
+                reward -= IDLE_REWARD
 
             return action, nextState, reward, terminated, truncated
 
