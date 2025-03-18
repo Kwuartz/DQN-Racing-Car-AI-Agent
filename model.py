@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from config import BATCH_SIZE, GAMMA, TAU, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, TRACK_WIDTH, FPS, MAX_TIMESTEPS
+from config import BATCH_SIZE, GAMMA, TAU, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, TRACK_WIDTH, FPS, MAX_TIMESTEPS, RED_CAR_IMAGE, VISUALISATION_STEP
 from cars import CarAgent
 
 Transition = namedtuple("Transition", ("state", "action", "nextState", "reward"))
@@ -30,21 +30,20 @@ class NeuralNetwork(nn.Module):
     def __init__(self, inputs, outputs):
         super(NeuralNetwork, self).__init__()
         self.layer1 = nn.Linear(inputs, 128)
+        self.norm = nn.LayerNorm(128)
         self.layer2 = nn.Linear(128, 128)
         self.layer3 = nn.Linear(128, outputs)
 
     def forward(self, x):
         x = torch.relu(self.layer1(x))
+        x = self.norm(x)
         x = torch.relu(self.layer2(x))
         return self.layer3(x)
 
 class DQNTrainer:
-    def __init__(self, screen, track, carImage):
-        self.screen = screen
-        self.track = track
-        self.carImage = carImage
-
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self, game):
+        self.game = game
+        self.device = game.device
 
         # Network parameters
         inputSize = 5
@@ -114,21 +113,20 @@ class DQNTrainer:
         torch.nn.utils.clip_grad_value_(self.policyNet.parameters(), 100)
         self.optimizer.step()
 
-    def train(self):
+    def train(self, episodes):
         steps = 0
-        episodes = 500
 
-        spawnPoint, spawnAngle = self.track.getSpawnPosition()
+        spawnPoint, spawnAngle = self.game.track.getSpawnPosition()
 
         for episodeIndex in range(episodes):
-            agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, self.carImage, self.policyNet, self.device, True)
-
-            state = agentCar.getState(self.track)
+            agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.policyNet, self.device, True)
+            
+            state = agentCar.getState(self.game.track)
             state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
 
             for timeStep in range(MAX_TIMESTEPS):
                 steps += 1
-                action, nextState, reward, terminated, truncated = agentCar.update(TRAINING_TIMESTEP, self.track, steps)
+                action, nextState, reward, terminated, truncated = agentCar.update(TRAINING_TIMESTEP, self.game.track, steps)
         
                 action = torch.tensor(action, device=self.device, dtype=torch.long)
                 reward = torch.tensor([reward], device=self.device)
@@ -150,11 +148,14 @@ class DQNTrainer:
                 self.softUpdateTargetNetwork()
 
                 if terminated or truncated:
-                    print(f"Episode {episodeIndex + 1} finished after {timeStep + 1} timesteps.")
+                    print(f"Episode {episodeIndex + 1} finished after {timeStep} timesteps.")
                     break
             
-            if episodeIndex % 5 == 0:
-                self.visualizeEpisode()
+            if (episodeIndex + 1) % VISUALISATION_STEP == 0:
+                self.game.visualizeEpisode()
+            
+            
+
     
     def softUpdateTargetNetwork(self):
         targetNetStateDict = self.targetNet.state_dict()
@@ -164,34 +165,3 @@ class DQNTrainer:
             targetNetStateDict[key] = policyNetStateDict[key] * TAU + targetNetStateDict[key] * (1.0 - TAU)
 
         self.targetNet.load_state_dict(targetNetStateDict)
-
-    def visualizeEpisode(self):
-        spawnPoint, spawnAngle = self.track.getSpawnPosition()
-        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, self.carImage, self.policyNet, self.device, False)
-
-        clock = pygame.time.Clock()
-        deltaTime = clock.tick(FPS) / 1000
-
-        visualisationRunning = True
-        while visualisationRunning:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    visualisationRunning = False
-            
-            # Select best action
-            crashed = agentCar.update(deltaTime, self.track)
-
-            if crashed:
-                visualisationRunning = False
-
-            trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT), pygame.SRCALPHA)
-            trackSurface.fill(BACKGROUND_COLOUR)
-
-            self.track.draw(trackSurface, pygame.Vector2(0, 0))
-            agentCar.draw(trackSurface, pygame.Vector2(0, 0))
-
-            scaledTrackSurface = pygame.transform.scale(trackSurface, (SCREEN_WIDTH, SCREEN_HEIGHT))
-            self.screen.blit(scaledTrackSurface, (0, 0))
-
-            pygame.display.flip()
-            deltaTime = clock.tick(FPS) / 1000

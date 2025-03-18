@@ -1,22 +1,25 @@
 import pygame
+import torch
 import math
 import os
 
 pygame.init()
 
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, TRACKS_PATH, CAR_WIDTH, CAR_HEIGHT, TOTAL_LAPS, BACKGROUND_COLOUR, BLUR_CAR_IMAGE, RED_CAR_IMAGE, FONT_16
+from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, TRACKS_PATH, CAR_WIDTH, CAR_HEIGHT, TOTAL_LAPS, BACKGROUND_COLOUR, BLUR_CAR_IMAGE, RED_CAR_IMAGE, FONT_16, TRAINING_EPISODES
 from gui import Container, TextLabel, Button, TextInputBox, Minimap
 from cars import Car, CarAgent
 from model import DQNTrainer
 from track import Track
 
-# I WANNA USE NAMED TUPLES FOR POSITION AND SIZE IT SEEMS NICE BUT NOT SURE WHEN TO USE THEM AND WHEN TO USE PYGAME VECTOR 2
 
 class Game:
     def __init__(self):
         #Initialising screen
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Racing Game")
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.trainer = DQNTrainer(self)
 
         self.running = True
         self.clock = pygame.time.Clock()
@@ -243,6 +246,7 @@ class Game:
                                     if trackName == "":
                                         trackName = DEFAULT_TRACK_NAME
 
+                                    self.track.initialiseTrack()
                                     self.track.exportTrack(trackName)
                                     editorRunning = False
 
@@ -367,9 +371,39 @@ class Game:
 
             self.deltaTime = self.clock.tick(FPS) / 1000
 
+    def visualizeEpisode(self):
+        spawnPoint, spawnAngle = self.track.getSpawnPosition()
+        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.trainer.policyNet, self.device, False)
+        
+        self.deltaTime = 1 / FPS
+        self.clock.tick(FPS)
+
+        visualisationRunning = True
+        while visualisationRunning:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    visualisationRunning = False
+            
+            # Select best action
+            crashed = agentCar.update(self.deltaTime, self.track)
+
+            if crashed:
+                visualisationRunning = False
+
+            trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT), pygame.SRCALPHA)
+            trackSurface.fill(BACKGROUND_COLOUR)
+
+            self.track.draw(trackSurface, pygame.Vector2(0, 0))
+            agentCar.draw(trackSurface, pygame.Vector2(0, 0))
+
+            scaledTrackSurface = pygame.transform.scale(trackSurface, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.screen.blit(scaledTrackSurface, (0, 0))
+
+            pygame.display.flip()
+            self.deltaTime = self.clock.tick(FPS) / 1000
+
     def training(self):
-        trainer = DQNTrainer(self.screen, self.track, RED_CAR_IMAGE)
-        trainer.train()
+        self.trainer.train(TRAINING_EPISODES)
 
 if __name__ == "__main__":
     Game()

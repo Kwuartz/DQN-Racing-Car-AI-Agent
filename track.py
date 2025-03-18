@@ -1,10 +1,8 @@
-from config import TRACK_WIDTH, TRACK_HEIGHT, TRACKS_PATH, COLOUR_SCHEME, CHECKPOINT_FREQUENCY
+from config import TRACK_WIDTH, TRACK_HEIGHT, TRACKS_PATH, COLOUR_SCHEME, CHECKPOINT_FREQUENCY, FONT_64
 
 import pygame
 import math
 import json
-
-
 
 class Track:
     def __init__(self, filePath=None):
@@ -14,7 +12,6 @@ class Track:
             self.importTrack(filePath)
         else:
             self.points = []
-            self.spawnPoint = (TRACK_WIDTH / 2, TRACK_HEIGHT / 2)
 
             self.trackWidth = 250
             self.trackColour = (50, 50, 50)
@@ -144,14 +141,14 @@ class Track:
                     pygame.draw.lines(screen, self.lineColour, False, curve, self.lineThickness)
         
         for index, point in enumerate(self.points):
-            pointLabel = font64.render(f"P{index}", True, self.pointLabelColour)
+            pointLabel = FONT_64.render(f"P{index}", True, self.pointLabelColour)
             
             pygame.draw.circle(screen, self.pointColour, point, self.pointRadius)
             screen.blit(pointLabel, point + self.pointLabelOffset)
 
         checkpoints = self.getCheckpoints(curves)
         for index, checkpoint in enumerate(checkpoints):
-            checkpointLabel = font64.render(f"C{index}", True, self.pointLabelColour)
+            checkpointLabel = FONT_64.render(f"C{index}", True, self.pointLabelColour)
             screen.blit(checkpointLabel, checkpoint[0] + self.pointLabelOffset)
 
             pygame.draw.line(screen, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
@@ -178,7 +175,7 @@ class Track:
         self.drawCircles(self.trackSurface, finalCurves)
 
         for index, checkpoint in enumerate(self.checkpoints):
-            checkpointLabel = font64.render(f"C{index}", True, self.pointLabelColour)
+            checkpointLabel = FONT_64.render(f"C{index}", True, self.pointLabelColour)
             self.trackSurface.blit(checkpointLabel, checkpoint[0] + self.pointLabelOffset)
 
             pygame.draw.line(self.trackSurface, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
@@ -202,31 +199,25 @@ class Track:
         for point in self.points:
             points.append((point.x, point.y))
 
-        spawnPoint = (self.spawnPoint.x, self.spawnPoint.y)
-
         output = {
-            "Points": self.points,
-            "SpawnPoint": self.spawnPoint,
+            "Points": points,
             "TrackWidth": self.trackWidth,
             "TrackColour": self.trackColour
         }
         
-        with open(f"{ASSETS_PATH}/Tracks/{filePath}.json", "w") as file:
+        with open(f"{TRACKS_PATH}/{filePath}.json", "w") as file:
             json.dump(output, file)
 
     def importTrack(self, filePath):
-        with open(f"{ASSETS_PATH}/Tracks/{filePath}.json", "r") as file:
+        with open(f"{TRACKS_PATH}/{filePath}.json", "r") as file:
             data = json.load(file)
             
             # Converting from tuple (x, y) -> Pygame.Vector2(x, y) to be imported 
             points = data["Points"]
-            spawnPoint = data["SpawnPoint"]
 
             self.points = []
             for point in points:
                 self.points.append(pygame.Vector2(point[0], point[1]))
-
-            self.spawnPoint = pygame.Vector2(spawnPoint[0], spawnPoint[1])
 
             self.trackWidth = data["TrackWidth"]
             self.trackColour = data["TrackColour"]

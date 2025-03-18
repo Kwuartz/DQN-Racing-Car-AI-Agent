@@ -1,4 +1,4 @@
-from config import CAMERA_SCROLL_SPEED, ASSETS_PATH, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, LAP_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY, MAX_IDLE_TIMESTEPS, SPEED_THRESHOLD, IDLE_REWARD
+from config import CAMERA_SCROLL_SPEED, ASSETS_PATH, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, LAP_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY, MAX_IDLE_TIMESTEPS, SPEED_REWARD, IDLE_REWARD
 
 import pygame
 import torch
@@ -192,7 +192,7 @@ class CarAgent(Car):
         self.model = model
         self.device = device
 
-    def getDistances(self, track, maxDistance=500):
+    def getDistances(self, track, maxDistance=1000):
         distances = []
 
         for sensor in self.sensors:
@@ -282,14 +282,13 @@ class CarAgent(Car):
                     terminated = True
         
         if self.training:
-            if self.speed < SPEED_THRESHOLD:
-                reward -= 1
+            reward += SPEED_REWARD * self.speed
 
             nextState = self.getState(track)
             action = accelerationAction, turningAction
 
             self.idleTimesteps += 1
-            if reward > 0:
+            if reward > CHECKPOINT_REWARD:
                 self.idleTimesteps = 0
             if self.idleTimesteps >= MAX_IDLE_TIMESTEPS:
                 truncated = True
