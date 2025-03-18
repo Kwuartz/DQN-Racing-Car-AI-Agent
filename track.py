@@ -1,4 +1,4 @@
-from config import TRACK_WIDTH, TRACK_HEIGHT, ASSETS_PATH, COLOUR_SCHEME
+from config import TRACK_WIDTH, TRACK_HEIGHT, ASSETS_PATH, COLOUR_SCHEME, CHECKPOINT_FREQUENCY
 
 import pygame
 import math
@@ -25,11 +25,10 @@ class Track:
         self.checkpoints = None
 
         self.minCurvePoints = 50
-        self.pointDensity = 25
-        self.finalPointDensity = 5
+        self.pointFrequency = 20
+        self.finalPointFrequency = 5
 
-        self.checkpointFrequency = 15
-        self.checkpointOffset = 20
+        self.checkpointOffset = 10
 
         self.checkpointThickness = 10
         self.checkpointColour = (255, 255, 0)
@@ -76,7 +75,7 @@ class Track:
 
         distance = math.dist(points[1], points[2])
         if distance > 1000:
-            curvePoints = int(distance / self.pointDensity)
+            curvePoints = int(distance / self.pointFrequency)
 
         for index in range(curvePoints + 1):
             t = index / curvePoints
@@ -118,7 +117,7 @@ class Track:
         # restor midpoint code so if there is not enough points in a curve we can add a checkpoint at midpoint of a curve
         for curve in curves:
             for index in range(len(curve) - self.checkpointOffset * 2 - 1):
-                if (index + self.checkpointOffset) % self.checkpointFrequency == 0:
+                if (index + self.checkpointOffset) % CHECKPOINT_FREQUENCY == 0:
                     point1 = pygame.Vector2(curve[index + self.checkpointOffset])
                     point2 = pygame.Vector2(curve[index + self.checkpointOffset + 1])
 
@@ -161,8 +160,8 @@ class Track:
 
     def getSpawnPosition(self):
         if self.curves:
-            point1 = pygame.Vector2(self.curves[-2][-2].x, self.curves[-2][-2].y)
-            point2 = pygame.Vector2(self.curves[-2][-1].x, self.curves[-2][-1].y)
+            point1 = pygame.Vector2(self.curves[-1][-2].x, self.curves[-1][-2].y)
+            point2 = pygame.Vector2(self.curves[-1][-1].x, self.curves[-1][-1].y)
 
             difference = point2 - point1
             angle = math.degrees(math.atan2(difference.y, difference.x))
@@ -174,7 +173,7 @@ class Track:
         self.checkpoints = self.getCheckpoints(self.curves)
 
         # Adding more curve points when creating final surface
-        self.pointDensity = self.finalPointDensity
+        self.pointFrequency = self.finalPointFrequency
         finalCurves = self.getCurves()
 
         self.trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT), pygame.SRCALPHA)

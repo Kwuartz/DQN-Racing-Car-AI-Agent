@@ -1,4 +1,4 @@
-from config import CAMERA_SCROLL_SPEED, ASSETS_PATH, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, LAP_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY
+from config import CAMERA_SCROLL_SPEED, ASSETS_PATH, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, LAP_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY, MAX_IDLE_TIMESTEPS, SPEED_THRESHOLD
 
 import pygame
 import torch
@@ -175,7 +175,7 @@ class Car:
         self.getDistances(screen, cameraOffset)
 
 class CarAgent(Car):
-    def __init__(self, x, y, direction, image, model, device):
+    def __init__(self, x, y, direction, image, model, device, training):
         super().__init__(x, y, direction, image)
         
         self.sensors= [
@@ -185,10 +185,14 @@ class CarAgent(Car):
             0,
         ]
 
+        self.training = training
+        if self.training:
+            self.idleTimesteps = 0 
+
         self.model = model
         self.device = device
 
-    def getDistances(self, track, maxDistance=600):
+    def getDistances(self, track, maxDistance=500):
         distances = []
 
         for sensor in self.sensors:
@@ -196,7 +200,7 @@ class CarAgent(Car):
             directionVector = pygame.Vector2(math.cos(sensorAngle), math.sin(sensorAngle))
 
             sensorDistance = maxDistance
-            for distance in range(maxDistance):
+            for distance in range(0, maxDistance, 15):
                 position = self.imageRect.center + directionVector * distance
 
                 if track.checkCollideAtPoint(position):
@@ -210,7 +214,6 @@ class CarAgent(Car):
     def getState(self, track):
         return [
             self.speed,
-            self.direction,
             *self.getDistances(track)
         ]
 
@@ -229,13 +232,14 @@ class CarAgent(Car):
 
             return accelerationAction, turningAction
 
-    def update(self, deltaTime, track, steps=None):
+    def update(self, deltaTime, track, steps=0):
         state = self.getState(track)
         state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
 
-        if steps:
+        if self.training:
             reward = 0
             terminated = False
+            truncated = False
 
             # Value 0 - 1 to be compared to epsilon threshold
             sample = random.random()
@@ -258,7 +262,7 @@ class CarAgent(Car):
         if collision:
             self.speed = 0
 
-            if steps:
+            if self.training:
                 reward += CRASH_REWARD
                 terminated = True
 
@@ -266,21 +270,36 @@ class CarAgent(Car):
         if self.collideCheckpoint(nextCheckpoint):
             self.checkpointIndex += 1
             
-            if steps:
+            if self.training:
                 reward += CHECKPOINT_REWARD
 
             if self.checkpointIndex > len(track.checkpoints) - 1:
                 self.checkpointIndex = 0
                 self.lap += 1
 
-                if steps:
+                if self.training:
                     reward += LAP_REWARD
                     terminated = True
+                else:
+                    print("hi")
 
-        if steps:
+        if self.training:
+            if self.speed < SPEED_THRESHOLD:
+                reward -= 5
+
             nextState = self.getState(track)
             action = accelerationAction, turningAction
-            return action, nextState, reward, terminated
+
+            self.idleTimesteps += 1
+            if reward > 0:
+                print(self.idleTimesteps)
+                self.idleTimesteps = 0
+            if self.idleTimesteps >= MAX_IDLE_TIMESTEPS:
+                truncated = True
+
+            return action, nextState, reward, terminated, truncated
+
+        return collision
             
     def draw(self, screen, cameraOffset):
         screen.blit(self.rotatedImage, (self.imageRect.x - cameraOffset[0], self.imageRect.y - cameraOffset[1]))

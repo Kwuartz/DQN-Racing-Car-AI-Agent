@@ -324,7 +324,7 @@ class Game:
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
 
         playerCar = Car(spawnPoint.x, spawnPoint.y, spawnAngle, blueCarImage)
-        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, redCarImage)
+        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, redCarImage, False)
 
         lap = 1
         cameraOffset = pygame.Vector2(0, 0)
