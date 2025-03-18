@@ -4,22 +4,13 @@ import os
 
 pygame.init()
 
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, ASSETS_PATH, CAR_WIDTH, CAR_HEIGHT, TOTAL_LAPS, BACKGROUND_COLOUR
+from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, TRACKS_PATH, CAR_WIDTH, CAR_HEIGHT, TOTAL_LAPS, BACKGROUND_COLOUR, BLUR_CAR_IMAGE, RED_CAR_IMAGE, FONT_16
 from gui import Container, TextLabel, Button, TextInputBox, Minimap
 from cars import Car, CarAgent
 from model import DQNTrainer
 from track import Track
 
 # I WANNA USE NAMED TUPLES FOR POSITION AND SIZE IT SEEMS NICE BUT NOT SURE WHEN TO USE THEM AND WHEN TO USE PYGAME VECTOR 2
-
-# Loading car images
-blueCarImage = pygame.transform.scale(pygame.image.load(f"{ASSETS_PATH}/Cars/BlueCar.png"), (CAR_WIDTH, CAR_HEIGHT))
-redCarImage = pygame.transform.scale(pygame.image.load(f"{ASSETS_PATH}/Cars/RedCar.png"), (CAR_WIDTH, CAR_HEIGHT))
-
-# Initialising fonts
-font16 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 16)
-font32 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 32)
-font64 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 64)
 
 class Game:
     def __init__(self):
@@ -35,10 +26,10 @@ class Game:
 
     def displayMainMenu(self):
         #Initialising menu buttons
-        playButton = Button(0.1, 0.2, 0.2, 0.1, "Play", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1],COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        trackButton = Button(0.1, 0.35, 0.2, 0.1, "Create Track", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        trainButton = Button(0.1, 0.5, 0.2, 0.1, "Train an Agent", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        exitButton = Button(0.1, 0.65, 0.2, 0.1, "Exit", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        playButton = Button(0.1, 0.2, 0.2, 0.1, "Play", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1],COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        trackButton = Button(0.1, 0.35, 0.2, 0.1, "Create Track", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        trainButton = Button(0.1, 0.5, 0.2, 0.1, "Train an Agent", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        exitButton = Button(0.1, 0.65, 0.2, 0.1, "Exit", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
 
         buttons = [playButton, trackButton, trainButton, exitButton]
 
@@ -85,8 +76,8 @@ class Game:
             self.deltaTime = self.clock.tick(FPS) / 1000
     
     def trackSelection(self, allowNewTrack=False):
-        backButton = Button(0.02, 0.88, 0.1, 0.1, "Back", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        selectButton = Button(0.88, 0.88, 0.1, 0.1, "Select", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        backButton = Button(0.02, 0.88, 0.1, 0.1, "Back", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        selectButton = Button(0.88, 0.88, 0.1, 0.1, "Select", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
 
         buttons = [backButton, selectButton]
 
@@ -104,14 +95,14 @@ class Game:
 
         # New track button
         if allowNewTrack:
-            newTrackButton = Button(0, 0, buttonSize.x, buttonSize.y, "New Track", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
+            newTrackButton = Button(0, 0, buttonSize.x, buttonSize.y, "New Track", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
             trackButtons.append(newTrackButton)
 
         # Creating track buttons from diirectory
-        trackPaths = os.listdir(f"{ASSETS_PATH}/Tracks")
+        trackPaths = os.listdir(TRACKS_PATH)
         for trackPath in trackPaths:
             strippedPath = trackPath[:-5]
-            trackButton = Button(0, 0, buttonSize.x, buttonSize.y, strippedPath, font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
+            trackButton = Button(0, 0, buttonSize.x, buttonSize.y, strippedPath, FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
             trackButtons.append(trackButton)
 
         selectedTrack = 0
@@ -207,9 +198,9 @@ class Game:
 
         editingTrackName = False
 
-        backButton = Button(0.02, 0.88, 0.1, 0.1, "Back", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        saveButton = Button(0.88, 0.88, 0.1, 0.1, "Save", font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        trackNameBox = TextInputBox(0.88, 0.76, 0.1, 0.1, trackName, font16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
+        backButton = Button(0.02, 0.88, 0.1, 0.1, "Back", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        saveButton = Button(0.88, 0.88, 0.1, 0.1, "Save", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        trackNameBox = TextInputBox(0.88, 0.76, 0.1, 0.1, trackName, FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
 
         elements = [backButton, saveButton, trackNameBox]
 
@@ -319,12 +310,12 @@ class Game:
         containerSize = pygame.Vector2(0.05, 0.05)
         containerPosition = minimapSize - containerSize
         gameInfoContainer = Container(containerPosition.x, containerPosition.y, containerSize.x, containerSize.y, COLOUR_SCHEME[2], COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
-        lapLabel = TextLabel(containerPosition.x, containerPosition.x, containerSize.x, containerSize.y, f"Lap 1/{TOTAL_LAPS}", font16, COLOUR_SCHEME[0])
+        lapLabel = TextLabel(containerPosition.x, containerPosition.x, containerSize.x, containerSize.y, f"Lap 1/{TOTAL_LAPS}", FONT_16, COLOUR_SCHEME[0])
 
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
 
-        playerCar = Car(spawnPoint.x, spawnPoint.y, spawnAngle, blueCarImage)
-        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, redCarImage, False)
+        playerCar = Car(spawnPoint.x, spawnPoint.y, spawnAngle, BLUE_CAR_IMAGE)
+        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, False)
 
         lap = 1
         cameraOffset = pygame.Vector2(0, 0)
@@ -377,7 +368,7 @@ class Game:
             self.deltaTime = self.clock.tick(FPS) / 1000
 
     def training(self):
-        trainer = DQNTrainer(self.screen, self.track, redCarImage)
+        trainer = DQNTrainer(self.screen, self.track, RED_CAR_IMAGE)
         trainer.train()
 
 if __name__ == "__main__":

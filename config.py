@@ -1,3 +1,5 @@
+import pygame
+
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
 
@@ -8,6 +10,16 @@ CAR_WIDTH = 80
 CAR_HEIGHT = 106
 
 ASSETS_PATH = "Assets"
+TRACKS_PATH = "Assets/Tracks"
+
+# Initialising fonts
+FONT_16 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 16)
+FONT_32 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 32)
+FONT_64 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 64)
+
+# Loading car images
+BLUR_CAR_IMAGE = pygame.transform.scale(pygame.image.load(f"{ASSETS_PATH}/Cars/BlueCar.png"), (CAR_WIDTH, CAR_HEIGHT))
+RED_CAR_IMAGE = pygame.transform.scale(pygame.image.load(f"{ASSETS_PATH}/Cars/RedCar.png"), (CAR_WIDTH, CAR_HEIGHT))
 
 FPS = 60
 CAMERA_SCROLL_SPEED = 0.1
@@ -27,11 +39,10 @@ BUTTON_HOVER_THICKNESS = 7
 
 DEFAULT_TRACK_NAME = "track"
 
-TOTAL_LAPS = 2
-
 CHECKPOINT_FREQUENCY = 10
 CHECKPOINT_REWARD = 100
 LAP_REWARD = 1000
+TOTAL_LAPS = 2
 CRASH_REWARD = -20
 SPEED_THRESHOLD = 0
 IDLE_REWARD = -10

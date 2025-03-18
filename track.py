@@ -1,12 +1,10 @@
-from config import TRACK_WIDTH, TRACK_HEIGHT, ASSETS_PATH, COLOUR_SCHEME, CHECKPOINT_FREQUENCY
+from config import TRACK_WIDTH, TRACK_HEIGHT, TRACKS_PATH, COLOUR_SCHEME, CHECKPOINT_FREQUENCY
 
 import pygame
 import math
 import json
 
-# Initialising fonts
-font32 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 32)
-font64 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 64)
+
 
 class Track:
     def __init__(self, filePath=None):
