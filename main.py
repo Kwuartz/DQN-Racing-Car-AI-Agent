@@ -63,7 +63,7 @@ class Game:
                             trackSelected = self.trackSelection()
                             if trackSelected:
                                 self.track.initialiseTrack()
-                                self.training()
+                                self.trainer.train(TRAINING_EPISODES)
                         elif hoveredButton == exitButton:
                             self.running = False
 
@@ -401,9 +401,6 @@ class Game:
 
             pygame.display.flip()
             self.deltaTime = self.clock.tick(FPS) / 1000
-
-    def training(self):
-        self.trainer.train(TRAINING_EPISODES)
 
 if __name__ == "__main__":
     Game()
