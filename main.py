@@ -5,7 +5,7 @@ import os
 
 pygame.init()
 
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, TRACKS_PATH, CAR_WIDTH, CAR_HEIGHT, TOTAL_LAPS, BACKGROUND_COLOUR, BLUR_CAR_IMAGE, RED_CAR_IMAGE, FONT_16, TRAINING_EPISODES
+from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, TRACKS_PATH, TOTAL_LAPS, BACKGROUND_COLOUR, BLUE_CAR_IMAGE, RED_CAR_IMAGE, FONT_16, TRAINING_EPISODES
 from gui import Container, TextLabel, Button, TextInputBox, Minimap
 from cars import Car, CarAgent
 from model import DQNTrainer
@@ -26,6 +26,10 @@ class Game:
         self.deltaTime = 1 / FPS
 
         self.displayMainMenu()
+
+    def resetDeltaTime(self):
+        self.deltaTime = 1 / FPS
+        self.clock.tick(FPS)
 
     def displayMainMenu(self):
         #Initialising menu buttons
@@ -48,7 +52,7 @@ class Game:
                 if event.type == pygame.QUIT:
                     self.running = False
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                elif event.type == pygame.MOUSEBUTTONDOWN:
                     # Button handling
                     if hoveredButton:
                         if hoveredButton == playButton:
@@ -130,7 +134,7 @@ class Game:
                     self.running = False
 
                 # Button handling
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                elif event.type == pygame.MOUSEBUTTONDOWN:
                     if hoveredTrackIndex is not None:
                         trackButtons[selectedTrack].setSelected(False)
                         selectedTrack = hoveredTrackIndex
@@ -230,7 +234,7 @@ class Game:
                 if event.type == pygame.QUIT:
                     self.running = False
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                elif event.type == pygame.MOUSEBUTTONDOWN:
                     editingTrackName = False
                     trackNameBox.setSelected(editingTrackName)
 
@@ -324,6 +328,8 @@ class Game:
         lap = 1
         cameraOffset = pygame.Vector2(0, 0)
 
+        self.resetDeltaTime()
+
         gameRunning = True
         while self.running and gameRunning:
             for event in pygame.event.get():
@@ -371,23 +377,43 @@ class Game:
 
             self.deltaTime = self.clock.tick(FPS) / 1000
 
+    def trainingMenu(self):
+        skipButton = Button(0.88, 0.88, 0.1, 0.1, "Skip", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+
+        elements = [skipButton]
+            
+        pygame.display.flip()
+
     def visualizeEpisode(self):
+        skipButton = Button(0.88, 0.88, 0.1, 0.1, "Skip", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+
+        elements = [skipButton]
+        
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
         agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.trainer.policyNet, self.device, False)
-        
-        self.deltaTime = 1 / FPS
-        self.clock.tick(FPS)
+
+        self.resetDeltaTime()
 
         visualisationRunning = True
-        while visualisationRunning:
+        while visualisationRunning and self.running:
+            hoveredElement = None
+            for element in elements:
+                if element.updateHovered(pygame.mouse.get_pos()):
+                    hoveredElement = element
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    visualisationRunning = False
+                    self.running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        if hoveredElement:
+                            if hoveredElement == skipButton:
+                                visualisationRunning = False
             
             # Select best action
             crashed = agentCar.update(self.deltaTime, self.track)
 
-            if crashed:
+            if crashed or agentCar.lap > 1:
                 visualisationRunning = False
 
             trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT), pygame.SRCALPHA)
@@ -400,6 +426,7 @@ class Game:
             self.screen.blit(scaledTrackSurface, (0, 0))
 
             pygame.display.flip()
+
             self.deltaTime = self.clock.tick(FPS) / 1000
 
 if __name__ == "__main__":

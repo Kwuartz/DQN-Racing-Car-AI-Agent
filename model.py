@@ -125,9 +125,19 @@ class DQNTrainer:
             state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
 
             for timeStep in range(MAX_TIMESTEPS):
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.game.running = False
+
+                if self.game.running == False:
+                    return
+
                 steps += 1
+
+                # Retrieving new transition
                 action, nextState, reward, terminated, truncated = agentCar.update(TRAINING_TIMESTEP, self.game.track, steps)
-        
+
+                # Converting to tensors
                 action = torch.tensor(action, device=self.device, dtype=torch.long)
                 reward = torch.tensor([reward], device=self.device)
                 if terminated:
