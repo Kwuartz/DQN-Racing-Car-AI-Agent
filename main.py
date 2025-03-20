@@ -377,10 +377,10 @@ class Game:
 
             self.deltaTime = self.clock.tick(FPS) / 1000
 
-    def trainingMenu(self):
-        skipButton = Button(0.88, 0.88, 0.1, 0.1, "Skip", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-
-        elements = [skipButton]
+    def trainingMenu(self, percentage):
+        padding = pygame.Vector2(0.02, )
+        outerPercentageBar = Container(0.25, 0.4, 0.5, 0.1, COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
+        innerPercentageBar = Container(0.25, 0.4 + padding, 0.5, 0.1, COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
             
         pygame.display.flip()
 
