@@ -144,7 +144,7 @@ class Car:
 
         return cameraOffset + pygame.Vector2(xOffset, yOffset)
 
-    def getDistances(self, screen, cameraOffset, maxDistance=200):
+    def getDistances(self, screen, cameraOffset, maxDistance=500):
         distances = []
 
         self.sensors= [
@@ -181,6 +181,8 @@ class CarAgent(Car):
         self.sensors= [
             -180,
             -135,
+            -105,
+            -75,
             -45,
             0,
         ]
@@ -192,7 +194,7 @@ class CarAgent(Car):
         self.model = model
         self.device = device
 
-    def getDistances(self, track, maxDistance=1000):
+    def getDistances(self, track, maxDistance=500):
         distances = []
 
         for sensor in self.sensors:
@@ -200,7 +202,7 @@ class CarAgent(Car):
             directionVector = pygame.Vector2(math.cos(sensorAngle), math.sin(sensorAngle))
 
             sensorDistance = maxDistance
-            for distance in range(0, maxDistance, 15):
+            for distance in range(0, maxDistance, 10):
                 position = self.imageRect.center + directionVector * distance
 
                 if track.checkCollideAtPoint(position):

@@ -5,7 +5,7 @@ import os
 
 pygame.init()
 
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, TRACKS_PATH, TOTAL_LAPS, BACKGROUND_COLOUR, BLUE_CAR_IMAGE, RED_CAR_IMAGE, FONT_16, TRAINING_EPISODES
+from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, TRACKS_PATH, TOTAL_LAPS, BACKGROUND_COLOUR, BLUE_CAR_IMAGE, RED_CAR_IMAGE, FONT_16, FONT_32, TRAINING_EPISODES, ASPECT_RATIO
 from gui import Container, TextLabel, Button, TextInputBox, Minimap
 from cars import Car, CarAgent
 from model import DQNTrainer
@@ -67,7 +67,7 @@ class Game:
                             trackSelected = self.trackSelection()
                             if trackSelected:
                                 self.track.initialiseTrack()
-                                self.trainer.train(TRAINING_EPISODES)
+                                self.trainer.train()
                         elif hoveredButton == exitButton:
                             self.running = False
 
@@ -92,7 +92,7 @@ class Game:
         containerPosition = pygame.Vector2(0.25, 0.05)
         offScreenPosition = pygame.Vector2(2, 2)
         buttonSize = pygame.Vector2(0.48, 0.13)
-        buttonPadding = pygame.Vector2(0.01, 0.01 * (SCREEN_WIDTH / SCREEN_HEIGHT))
+        buttonPadding = pygame.Vector2(0.01, 0.01 * ASPECT_RATIO)
         tracksPerPage = 6
         scrollIndex = 0
 
@@ -377,11 +377,27 @@ class Game:
 
             self.deltaTime = self.clock.tick(FPS) / 1000
 
-    def trainingMenu(self, percentage):
-        padding = pygame.Vector2(0.02, )
-        outerPercentageBar = Container(0.25, 0.4, 0.5, 0.1, COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
-        innerPercentageBar = Container(0.25, 0.4 + padding, 0.5, 0.1, COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
+    def trainingMenu(self):
+        percentage = self.trainer.episode / TRAINING_EPISODES
+        barPadding = pygame.Vector2(0.01, 0.01 * ASPECT_RATIO)
+        barSize = pygame.Vector2(0.5, 0.1)
+        barPosition = pygame.Vector2(0.25, 0.3)
+
+        outerBar = Container(barPosition.x, barPosition.y, barSize.x, barSize.y, COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
+        innerBar = Container(barPosition.x + barPadding.x, barPosition.y + barPadding.y, (barSize.x - barPadding.x * 2) * percentage, barSize.y - barPadding.y * 2, COLOUR_SCHEME[0])
+
+        labelPosition = barPosition + pygame.Vector2(0, barSize.y)
+        episodeLabel = TextLabel(labelPosition.x, labelPosition.y, barSize.x, barSize.y, f"{self.trainer.episode} / {TRAINING_EPISODES}", FONT_32, COLOUR_SCHEME[0])
+
+        self.screen.fill(BACKGROUND_COLOUR)
             
+        outerBar.draw(self.screen)
+        innerBar.draw(self.screen)
+
+        episodeLabel.draw(self.screen)
+
+        pygame.display.flip()
+
         pygame.display.flip()
 
     def visualizeEpisode(self):
@@ -424,6 +440,9 @@ class Game:
 
             scaledTrackSurface = pygame.transform.scale(trackSurface, (SCREEN_WIDTH, SCREEN_HEIGHT))
             self.screen.blit(scaledTrackSurface, (0, 0))
+
+            for element in elements:
+                element.draw(self.screen)
 
             pygame.display.flip()
 

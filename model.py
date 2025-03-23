@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from config import BATCH_SIZE, GAMMA, TAU, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, TRACK_WIDTH, FPS, MAX_TIMESTEPS, RED_CAR_IMAGE, VISUALISATION_STEP
+from config import BATCH_SIZE, GAMMA, TAU, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, TRACK_WIDTH, FPS, MAX_TIMESTEPS, RED_CAR_IMAGE, VISUALISATION_STEP, TRAINING_EPISODES
 from cars import CarAgent
 
 Transition = namedtuple("Transition", ("state", "action", "nextState", "reward"))
@@ -30,13 +30,11 @@ class NeuralNetwork(nn.Module):
     def __init__(self, inputs, outputs):
         super(NeuralNetwork, self).__init__()
         self.layer1 = nn.Linear(inputs, 128)
-        self.norm = nn.LayerNorm(128)
         self.layer2 = nn.Linear(128, 128)
         self.layer3 = nn.Linear(128, outputs)
 
     def forward(self, x):
         x = torch.relu(self.layer1(x))
-        x = self.norm(x)
         x = torch.relu(self.layer2(x))
         return self.layer3(x)
 
@@ -46,7 +44,7 @@ class DQNTrainer:
         self.device = game.device
 
         # Network parameters
-        inputSize = 5
+        inputSize = 7
         actionSize = 6
 
         self.policyNet = NeuralNetwork(inputSize, actionSize).to(self.device)
@@ -55,6 +53,8 @@ class DQNTrainer:
 
         self.optimizer = optim.AdamW(self.policyNet.parameters(), lr=LR, amsgrad=True)
         self.memory = ReplayMemory(10000)
+
+        self.episode = 0
     
     def optimizeModel(self):
         if len(self.memory) < BATCH_SIZE:
@@ -113,12 +113,15 @@ class DQNTrainer:
         torch.nn.utils.clip_grad_value_(self.policyNet.parameters(), 100)
         self.optimizer.step()
 
-    def train(self, episodes):
+    def train(self):
         steps = 0
 
         spawnPoint, spawnAngle = self.game.track.getSpawnPosition()
 
-        for episodeIndex in range(episodes):
+        while self.episode <= TRAINING_EPISODES:
+            self.game.trainingMenu()
+
+            self.episode += 1
             agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.policyNet, self.device, True)
             
             state = agentCar.getState(self.game.track)
@@ -158,14 +161,11 @@ class DQNTrainer:
                 self.softUpdateTargetNetwork()
 
                 if terminated or truncated:
-                    print(f"Episode {episodeIndex + 1} finished after {timeStep} timesteps.")
+                    print(f"Episode {self.episode} finished after {timeStep} timesteps.")
                     break
             
-            if (episodeIndex + 1) % VISUALISATION_STEP == 0:
+            if (self.episode) % VISUALISATION_STEP == 0:
                 self.game.visualizeEpisode()
-            
-            
-
     
     def softUpdateTargetNetwork(self):
         targetNetStateDict = self.targetNet.state_dict()

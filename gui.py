@@ -49,7 +49,7 @@ class Minimap(GuiElement):
         screen.blit(self.surface, self.rect)
 
 class Container(GuiElement):
-    def __init__(self, x, y, width, height, backgroundColour, borderColour, borderThickness):
+    def __init__(self, x, y, width, height, backgroundColour, borderColour=(0,0,0), borderThickness=0):
         super().__init__(x, y, width, height)
         self.backgroundColour = backgroundColour        
         self.borderColour = borderColour
@@ -57,10 +57,12 @@ class Container(GuiElement):
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.backgroundColour, self.rect)
-        pygame.draw.rect(screen, self.borderColour, self.rect, self.borderThickness)
+
+        if self.borderThickness > 0:
+            pygame.draw.rect(screen, self.borderColour, self.rect, self.borderThickness)
 
 class Button(TextLabel):
-    def __init__(self, x, y, width, height, text, font, textColour, backgroundColour, borderColour, borderThickness, hoverBorderThickness=0, selectedBackgroundColour=(0,0,0)):
+    def __init__(self, x, y, width, height, text, font, textColour, backgroundColour, borderColour=(0,0,0), borderThickness=0, hoverBorderThickness=0, selectedBackgroundColour=(0,0,0)):
         super().__init__(x, y, width, height, text, font, textColour)
         
         self.font = font
@@ -99,7 +101,7 @@ class Button(TextLabel):
             self.backgroundColour = self.normalBackgroundColour
 
 class TextInputBox(Button):
-    def __init__(self, x, y, width, height, text, font, textColour, backgroundColour, borderColour, borderThickness, hoverBorderThickness=0, selectedBackgroundColour=(0,0,0)):
+    def __init__(self, x, y, width, height, text, font, textColour, backgroundColour, borderColour=(0,0,0), borderThickness=0, hoverBorderThickness=0, selectedBackgroundColour=(0,0,0)):
         super().__init__(x, y, width, height, text, font, textColour, backgroundColour, borderColour, borderThickness, hoverBorderThickness, selectedBackgroundColour)
         self.textContent = text
 
