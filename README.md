@@ -11,17 +11,17 @@ RL DQN Racing AI is a car racing project where an AI, trained using Deep Q-Netwo
 ## Play 
 Race against the AI on pre-built or custom tracks.
 
-![Play Mode](path/to/play_mode_image.png)
+![Play Mode](Assets/Images/)
 
 ## Training
 The AI learns to drive by trial and error, improving over time.
 
-![Training Mode](path/to/training_mode_image.png)
+![Training Mode](Assets/Images/)
 
 ## Track Editor
 Manually design race tracks using the track editor
 
-![Track Creation Mode](path/to/track_creation_image.png)
+![Track Creation Mode](Assets/Images/TrackEditor.png)
 
 ## Technologies Used
 - Python
