@@ -3,7 +3,7 @@
 ![Project Banner](path/to/banner_image.png)
 
 ## Overview
-RL DQN Racing AI is a car racing project where an AI, trained using Deep Q-Networks (DQN), competes against a human player. The project includes:
+A school project where I created a racing game in which an AI, trained using Deep Q-Networks (DQN), competes against a human player. The project includes:
 - AI opponents trained Deep Q-Networks (DQN)
 - Custom track creation
 - Playable racing experience
