@@ -1,7 +1,7 @@
 from config import CAMERA_SCROLL_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, LAP_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY, MAX_IDLE_TIMESTEPS, SPEED_REWARD, IDLE_REWARD
 
 import pygame
-import torch
+import numpy as np
 import random
 import math
 
@@ -175,7 +175,7 @@ class Car:
         self.getDistances(screen, cameraOffset)
 
 class CarAgent(Car):
-    def __init__(self, x, y, direction, image, model, device, training):
+    def __init__(self, x, y, direction, image, model, training):
         super().__init__(x, y, direction, image)
         
         self.sensors= [
@@ -192,7 +192,6 @@ class CarAgent(Car):
             self.idleTimesteps = 0 
 
         self.model = model
-        self.device = device
 
     def getDistances(self, track, maxDistance=500):
         distances = []
@@ -214,29 +213,27 @@ class CarAgent(Car):
         return distances
 
     def getState(self, track):
-        return [
+        return np.array([
             self.speed,
             *self.getDistances(track)
-        ]
+        ])
 
     def selectAction(self, state):
-        with torch.no_grad():
-            # Calculate Q-Values
-            QValues = self.model(state)
-            
-            # Seperate Q-Values for acceleration and turning
-            accelerationQValues = QValues[:, :3]
-            turningQValues = QValues[:, 3:]
+        # Calculate Q-Values
+        QValues = self.model.forwardPass(state)
+        
+        # Seperate Q-Values for acceleration and turning
+        accelerationQValues = QValues[:3]
+        turningQValues = QValues[3:]
 
-            # Get the best action for each and shift from 0, 1, 2 -> -1, 0, 1
-            accelerationAction = accelerationQValues.max(1).indices.item() - 1
-            turningAction = turningQValues.max(1).indices.item() - 1
+        # Get the best action for each and shift from 0, 1, 2 -> -1, 0, 1
+        accelerationAction = accelerationQValues.argmax() - 1
+        turningAction = turningQValues.argmax() - 1
 
-            return accelerationAction, turningAction
+        return accelerationAction, turningAction
 
     def update(self, deltaTime, track, steps=0):
         state = self.getState(track)
-        state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
 
         if self.training:
             reward = 0

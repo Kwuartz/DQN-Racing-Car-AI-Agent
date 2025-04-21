@@ -92,20 +92,27 @@ class DQNTrainer:
         selectedAccelerationQValues = accelerationQValues.gather(1, accelerationActions.unsqueeze(1))
         selectedTurningQValues = turningQValues.gather(1, turningActions.unsqueeze(1))
 
-        # Combine the Q-values for both actions (acceleration and turning)
-        stateActionQValues = selectedAccelerationQValues + selectedTurningQValues
-
         # Calculate target Q-Values for the next state
-        nextStateValues = torch.zeros(BATCH_SIZE, device=self.device)
+        nextStateQValues = torch.zeros(BATCH_SIZE, 6, device=self.device)
         with torch.no_grad():
-            nextStateValues[nonFinalMask] = self.targetNet(nonFinalNextStates).max(1).values
+            nextStateQValues[nonFinalMask] = self.targetNet(nonFinalNextStates)
+            
+        # Separate the max Q-values for acceleration and turning
+        nextStateAccelerationValues = nextStateQValues[:, :3].max(1).values
+        nextStateTurningValues = nextStateQValues[:, 3:].max(1).values
 
-        # Compute the expected Q-Values
-        expectedStateActionValues = (nextStateValues * GAMMA) + rewardBatch
+        # Compute the expected Q-Values for both acceleration and turning
+        expectedAccelerationValues = (nextStateAccelerationValues * GAMMA) + rewardBatch
+        expectedTurningValues = (nextStateTurningValues * GAMMA) + rewardBatch
 
-        # Compute Huber loss
+        # Compute Huber loss for both acceleration and turning
         criterion = nn.SmoothL1Loss()
-        loss = criterion(stateActionQValues, expectedStateActionValues.unsqueeze(1))
+
+        accelerationLoss = criterion(selectedAccelerationQValues, expectedAccelerationValues.unsqueeze(1))
+        turningLoss = criterion(selectedTurningQValues, expectedTurningValues.unsqueeze(1))
+        
+        # Combine both losses
+        loss = accelerationLoss + turningLoss
 
         # Optimize
         self.optimizer.zero_grad()

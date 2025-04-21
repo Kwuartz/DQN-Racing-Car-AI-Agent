@@ -1,5 +1,4 @@
 import pygame
-import torch
 import math
 import os
 
@@ -8,7 +7,7 @@ pygame.init()
 from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, TRACKS_PATH, TOTAL_LAPS, BACKGROUND_COLOUR, BLUE_CAR_IMAGE, RED_CAR_IMAGE, FONT_16, FONT_32, TRAINING_EPISODES, ASPECT_RATIO
 from gui import Container, TextLabel, Button, TextInputBox, Minimap
 from cars import Car, CarAgent
-from model import DQNTrainer
+from modelNumpy import DQNTrainer
 from track import Track
 
 
@@ -18,7 +17,6 @@ class Game:
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Racing Game")
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.trainer = DQNTrainer(self)
 
         self.running = True
