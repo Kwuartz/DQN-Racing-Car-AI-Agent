@@ -23,7 +23,7 @@ class Track:
         self.pointFrequency = 20
         self.finalPointFrequency = 5
 
-        self.checkpointOffset = 10
+        self.checkpointOffset = 7
 
         self.checkpointThickness = 10
         self.checkpointColour = (255, 255, 0)
@@ -161,7 +161,7 @@ class Track:
             difference = point2 - point1
             angle = math.degrees(math.atan2(difference.y, difference.x))
 
-        return point1, angle
+            return point1, angle
 
     def initialiseTrack(self):
         self.curves = self.getCurves()
@@ -191,7 +191,7 @@ class Track:
         return self.mask.get_at(position)
 
     def getFilePath(self):
-        return self.filePath
+        return self.filePath or ""
 
     def exportTrack(self, filePath):
         # Converting from Pygame.Vector2(x, y) -> tuple (x, y) to be stored 

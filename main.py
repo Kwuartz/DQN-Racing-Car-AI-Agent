@@ -4,7 +4,7 @@ import os
 
 pygame.init()
 
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, DEFAULT_TRACK_NAME, TRACKS_PATH, TOTAL_LAPS, BACKGROUND_COLOUR, BLUE_CAR_IMAGE, RED_CAR_IMAGE, FONT_16, FONT_32, TRAINING_EPISODES, ASPECT_RATIO
+from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, TRACKS_PATH, TOTAL_LAPS, BACKGROUND_COLOUR, BLUE_CAR_IMAGE, RED_CAR_IMAGE, FONT_16, FONT_32, TRAINING_EPISODES, ASPECT_RATIO, MAX_TIMESTEPS, TRAINING_TIMESTEP, SPEED_REWARD
 from gui import Container, TextLabel, Button, TextInputBox, Minimap
 from cars import Car, CarAgent
 from modelNumpy import DQNTrainer
@@ -198,13 +198,11 @@ class Game:
     def trackEditor(self):
         # Getting track name
         trackName = self.track.getFilePath()
-        if trackName is None:
-            trackName = DEFAULT_TRACK_NAME
-
         editingTrackName = False
 
         backButton = Button(0.02, 0.88, 0.1, 0.1, "Back", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
         saveButton = Button(0.88, 0.88, 0.1, 0.1, "Save", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        trackNameLabel = TextLabel(0.88, 0.71, 0.1, 0.05, "TRACK NAME:", FONT_32, COLOUR_SCHEME[0])
         trackNameBox = TextInputBox(0.88, 0.76, 0.1, 0.1, trackName, FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
 
         elements = [backButton, saveButton, trackNameBox]
@@ -246,11 +244,15 @@ class Game:
                                 if selectedPoint is None:
                                     trackName = trackNameBox.getText()
                                     if trackName == "":
-                                        trackName = DEFAULT_TRACK_NAME
-
-                                    self.track.initialiseTrack()
-                                    self.track.exportTrack(trackName)
-                                    editorRunning = False
+                                        trackNameLabel.textColour = COLOUR_SCHEME[5]
+                                        trackNameLabel.updateText("INVALID TRACK NAME:")
+                                    elif not self.track.curves:
+                                        trackNameLabel.textColour = COLOUR_SCHEME[5]
+                                        trackNameLabel.updateText("INVALID TRACK:")
+                                    else:
+                                        self.track.initialiseTrack()
+                                        self.track.exportTrack(trackName)
+                                        editorRunning = False
 
                             # User is editing the track name
                             elif hoveredElement == trackNameBox:
@@ -304,6 +306,8 @@ class Game:
 
             for element in elements:
                 element.draw(self.screen)
+
+            trackNameLabel.draw(self.screen)
 
             pygame.display.flip()
 
@@ -404,9 +408,11 @@ class Game:
         elements = [skipButton]
         
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
-        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.trainer.policyNet, self.device, False)
+        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.trainer.policyNet, False)
 
         self.resetDeltaTime()
+        timeSteps = 0
+        maxTimeSteps = MAX_TIMESTEPS / TRAINING_TIMESTEP
 
         visualisationRunning = True
         while visualisationRunning and self.running:
@@ -426,8 +432,14 @@ class Game:
             
             # Select best action
             crashed = agentCar.update(self.deltaTime, self.track)
+            timeSteps += 1
+            
+            if timeSteps % 25 == 0:
+                print("SPEED RWD:", SPEED_REWARD * agentCar.speed)
+                print("SPEED:", agentCar.speed)
+                print("FPS", 1 / self.deltaTime)
 
-            if crashed or agentCar.lap > 1:
+            if crashed or agentCar.lap > 1 or timeSteps >= maxTimeSteps:
                 visualisationRunning = False
 
             trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT), pygame.SRCALPHA)

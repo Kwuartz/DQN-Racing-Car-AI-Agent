@@ -1,4 +1,4 @@
-from config import CAMERA_SCROLL_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, LAP_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY, MAX_IDLE_TIMESTEPS, SPEED_REWARD, IDLE_REWARD
+from config import CAMERA_SCROLL_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY, MAX_IDLE_TIMESTEPS, SPEED_REWARD, IDLE_REWARD, TIMESTEP_REWARD
 
 import pygame
 import numpy as np
@@ -7,8 +7,8 @@ import math
 
 class Car:
     def __init__(self, x, y, direction, image):
-        self.maxSpeed = 800
-        self.acceleration = 300
+        self.maxSpeed = 500
+        self.acceleration = 200
 
         self.friction = 0.5
         self.brakeStrength = 3
@@ -144,35 +144,8 @@ class Car:
 
         return cameraOffset + pygame.Vector2(xOffset, yOffset)
 
-    def getDistances(self, screen, cameraOffset, maxDistance=500):
-        distances = []
-
-        self.sensors= [
-            -180,
-            -135,
-            -45,
-            0,
-        ]
-
-        for sensor in self.sensors:
-            sensorAngle = math.radians(self.direction + sensor)
-            directionVector = pygame.Vector2(math.cos(sensorAngle), math.sin(sensorAngle))
-
-            sensorDistance = maxDistance
-            for distance in range(maxDistance):
-                position = self.imageRect.center + directionVector * distance
-                screen.set_at((round(position.x - cameraOffset.x), round(position.y - cameraOffset.y)), (255, 0, 0))
-
-                if self.track.checkCollideAtPoint(position):
-                    sensorDistance = distance
-                    break
-            distances.append(sensorDistance)
-        
-        return distances
-
     def draw(self, screen, cameraOffset):
         screen.blit(self.rotatedImage, (self.imageRect.x - cameraOffset.x, self.imageRect.y - cameraOffset.y))
-        self.getDistances(screen, cameraOffset)
 
 class CarAgent(Car):
     def __init__(self, x, y, direction, image, model, training):
@@ -187,36 +160,42 @@ class CarAgent(Car):
             0,
         ]
 
+        self.maxDistance = 500
+
         self.training = training
         if self.training:
             self.idleTimesteps = 0 
 
         self.model = model
 
-    def getDistances(self, track, maxDistance=500):
+    def getDistances(self, track):
         distances = []
 
         for sensor in self.sensors:
             sensorAngle = math.radians(self.direction + sensor)
             directionVector = pygame.Vector2(math.cos(sensorAngle), math.sin(sensorAngle))
 
-            sensorDistance = maxDistance
-            for distance in range(0, maxDistance, 10):
+            sensorDistance = self.maxDistance
+            for distance in range(0, self.maxDistance, 5):
                 position = self.imageRect.center + directionVector * distance
 
                 if track.checkCollideAtPoint(position):
                     sensorDistance = distance
                     break
-                
+
             distances.append(sensorDistance)
-        
-        return distances
+
+        return np.array(distances)
 
     def getState(self, track):
-        return np.array([
-            self.speed,
-            *self.getDistances(track)
+        # Normalise each input 
+        state = np.array([
+            self.speed / self.acceleration,
+            *self.getDistances(track) / self.maxDistance,
+            self.wheelDirection / 45,
         ])
+
+        return state
 
     def selectAction(self, state):
         # Calculate Q-Values
@@ -244,16 +223,17 @@ class CarAgent(Car):
             sample = random.random()
 
             # Calculating epsilon threshold
-            epsThreshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps / EPS_DECAY)
+            self.epsThreshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps / EPS_DECAY) # DSSAD SASDDSAADS SADA DSSAD DASA GET RID OF self.
 
             steps += 1
-            if sample > epsThreshold:
+            if sample > self.epsThreshold:
                 accelerationAction, turningAction = self.selectAction(state)
             else:
                 accelerationAction = random.choice([-1, 0, 1])
                 turningAction = random.choice([-1, 0, 1])
         else:
             accelerationAction, turningAction = self.selectAction(state)
+            epsThreshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps / EPS_DECAY)
 
         self.handleInputs(deltaTime, accelerationAction, turningAction)
         
@@ -268,30 +248,30 @@ class CarAgent(Car):
         nextCheckpoint = track.checkpoints[self.checkpointIndex]
         if self.collideCheckpoint(nextCheckpoint):
             self.checkpointIndex += 1
-            
+
             if self.training:
                 reward += CHECKPOINT_REWARD
+                self.idleTimesteps = 0
 
             if self.checkpointIndex > len(track.checkpoints) - 1:
                 self.checkpointIndex = 0
                 self.lap += 1
 
                 if self.training:
-                    reward += LAP_REWARD
                     terminated = True
         
         if self.training:
-            reward += SPEED_REWARD * self.speed
-
             nextState = self.getState(track)
             action = accelerationAction, turningAction
 
+            reward += max(0, self.speed) * SPEED_REWARD
+            reward += TIMESTEP_REWARD
+
             self.idleTimesteps += 1
-            if reward > CHECKPOINT_REWARD:
-                self.idleTimesteps = 0
+
             if self.idleTimesteps >= MAX_IDLE_TIMESTEPS:
                 truncated = True
-                reward -= IDLE_REWARD
+                reward += IDLE_REWARD
 
             return action, nextState, reward, terminated, truncated
 
