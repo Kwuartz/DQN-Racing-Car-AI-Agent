@@ -4,8 +4,6 @@ import pygame
 import numpy as np
 import math
 
-import matplotlib.pyplot as plt
-
 from config import BATCH_SIZE, DISCOUNT_FACTOR, TARGET_UPDATE_STRENGTH, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, TRACK_WIDTH, FPS, MAX_TIMESTEPS, RED_CAR_IMAGE, VISUALISATION_STEP, TRAINING_EPISODES, EXPERIENCE_CAPACITY
 from cars import CarAgent
 
@@ -31,14 +29,14 @@ class NeuralNetwork:
     def __init__(self, inputs, outputs):
         # Initialising neural network with small random weights
         self.weights = [
-            np.random.randn(inputs, 64) * 0.01,
-            np.random.randn(64, 64) * 0.01,
-            np.random.randn(64, outputs) * 0.01
+            np.random.randn(inputs, 128) * 0.1,
+            np.random.randn(128, 128) * 0.1,
+            np.random.randn(128, outputs) * 0.1
         ]
 
         self.biases = [
-            np.zeros(64),
-            np.zeros(64),
+            np.zeros(128),
+            np.zeros(128),
             np.zeros(outputs)
         ]
 
@@ -66,7 +64,7 @@ class DQNTrainer:
         self.game = game
 
         # Input and output layer sizes
-        self.inputSize = 8
+        self.inputSize = 6
         self.actionSize = 6
         
         # Initialising policy and target network
@@ -176,9 +174,6 @@ class DQNTrainer:
 
             # Calculate and gather Q-Values for each action
             stateActionQValues = self.policyNet.forwardPass(stateBatch)
-
-            self.totalQ += np.mean(stateActionQValues)
-            self.qCount += 1
             
             # Separate Q-values for acceleration and turning
             accelerationQValues = stateActionQValues[:, :3]
@@ -239,11 +234,6 @@ class DQNTrainer:
 
             self.episode += 1
 
-            self.totalReward = 0
-            self.totalQ = 0
-            self.totalLoss = 0
-            self.qCount = 0
-
             # Initialise the car agent
             agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.policyNet, True)
             
@@ -262,8 +252,6 @@ class DQNTrainer:
 
                 # Retrieving new transition
                 action, nextState, reward, terminated, truncated = agentCar.update(TRAINING_TIMESTEP, self.game.track, steps)
-
-                self.totalReward += reward
 
                 if terminated:
                     nextState = None
@@ -284,38 +272,9 @@ class DQNTrainer:
                     print(f"Episode {self.episode} finished after {timeStep} timesteps.")
                     break
             
-            self.episode_rewards.append(self.totalReward)
-            self.episode_qvalues.append(self.totalQ / self.qCount if self.qCount > 0 else 0)
-            self.episode_epsilons.append(agentCar.epsThreshold)
-            
             # Visualise the episode
             if (self.episode) % VISUALISATION_STEP == 0:
                 self.game.visualizeEpisode()
-                plt.figure(figsize=(12, 6))
-
-                plt.subplot(2, 2, 1)
-                plt.plot(self.episode_rewards, label="Reward")
-                plt.title("Total Reward per Episode")
-                plt.xlabel("Episode")
-                plt.ylabel("Reward")
-                plt.grid()
-
-                plt.subplot(2, 2, 2)
-                plt.plot(self.episode_qvalues, label="Q-Values", color='orange')
-                plt.title("Average Q-Value per Episode")
-                plt.xlabel("Episode")
-                plt.ylabel("Q-Value")
-                plt.grid()
-
-                plt.subplot(2, 2, 3)
-                plt.plot(self.episode_epsilons, label="Epsilon", color='green')
-                plt.title("Epsilon Over Time")
-                plt.xlabel("Episode")
-                plt.ylabel("Epsilon")
-                plt.grid()
-
-                plt.tight_layout()
-                plt.show()
     
     def partialUpdateTargetNetwork(self):
         for layerIndex in range(len(self.policyNet.weights)):

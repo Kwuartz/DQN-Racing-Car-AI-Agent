@@ -8,23 +8,27 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from config import BATCH_SIZE, GAMMA, TAU, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, TRACK_WIDTH, FPS, MAX_TIMESTEPS, RED_CAR_IMAGE, VISUALISATION_STEP, TRAINING_EPISODES
+from config import BATCH_SIZE, DISCOUNT_FACTOR, TARGET_UPDATE_STRENGTH, LR, TRAINING_TIMESTEP, BACKGROUND_COLOUR, SCREEN_HEIGHT, SCREEN_WIDTH, TRACK_HEIGHT, EXPLORATION_DECAY, NETWORK_INPUT_SIZE, NETWORK_ACTION_SIZE, TRACK_WIDTH, FPS, MAX_TIMESTEPS, EXPLORATION_START, MODELS_PATH, EXPLORATION_END, RED_CAR_IMAGE, VISUALISATION_STEP, TRAINING_EPISODES, EXPERIENCE_CAPACITY
 from cars import CarAgent
 
 Transition = namedtuple("Transition", ("state", "action", "nextState", "reward"))
 
-class ReplayMemory:
-    def __init__(self, capacity):
-        self.memory = deque([], maxlen=capacity)
+class ExperienceMemory:
+    def __init__(self, maximumSize):
+        # Deque for efficiency
+        self.memory = deque([], maxlen=maximumSize)
 
-    def push(self, *args):
-        self.memory.append(Transition(*args))
-
-    def sample(self, batchSize):
-        return random.sample(self.memory, batchSize)
-
-    def __len__(self):
+    def getSize(self):
+        # To check how many experiences are stored in the memory
         return len(self.memory)
+
+    def addExperience(self, state, action, nextState, reward):
+        # Add experience as a tuple
+        self.memory.append((state, action, nextState, reward))
+
+    def getBatch(self, batchSize):
+        # Randomly sample experiences to create a batch
+        return random.sample(self.memory, batchSize)
 
 class NeuralNetwork(nn.Module):
     def __init__(self, inputs, outputs):
@@ -43,97 +47,76 @@ class DQNTrainer:
         self.game = game
         self.device = game.device
 
-        # Network parameters
-        inputSize = 7
-        actionSize = 6
-
-        self.policyNet = NeuralNetwork(inputSize, actionSize).to(self.device)
-        self.targetNet = NeuralNetwork(inputSize, actionSize).to(self.device)
+        # Initialising neural network
+        self.policyNet = NeuralNetwork(NETWORK_INPUT_SIZE, NETWORK_ACTION_SIZE).to(self.device)
+        self.targetNet = NeuralNetwork(NETWORK_INPUT_SIZE, NETWORK_ACTION_SIZE).to(self.device)
         self.targetNet.load_state_dict(self.policyNet.state_dict())
 
+        # Initialisng optimiser and experience memory
         self.optimizer = optim.AdamW(self.policyNet.parameters(), lr=LR, amsgrad=True)
-        self.memory = ReplayMemory(10000)
-
-        self.episode = 0
+        self.memory = ExperienceMemory(EXPERIENCE_CAPACITY)
     
-    def optimizeModel(self):
-        if len(self.memory) < BATCH_SIZE:
-            return
+    def updateModel(self):
+        if self.memory.getSize() >= BATCH_SIZE:
+            # Sampling experiences
+            experiences = self.memory.getBatch(BATCH_SIZE)
 
-        # Sampling transitions
-        transitions = self.memory.sample(BATCH_SIZE)
-        batch = Transition(*zip(*transitions))
+            # Split batch into states, actions, nextStates and rewards arrays
+            states, actions, nextStates, rewards = zip(*experiences)
 
-        # Removing final states
-        nonFinalMask = torch.tensor(
-            tuple(map(lambda s: s is not None, batch.nextState)),
-            device=self.device, 
-            dtype=torch.bool
-        )
-        nonFinalNextStates = torch.cat([s for s in batch.nextState if s is not None])
+            # Convert each array into tensors so I can manipulate them using pytorch
+            states = torch.cat(states)
+            actions = torch.cat(actions)
+            rewards = torch.cat(rewards)
 
-        # Concatenating tensors
-        stateBatch = torch.cat(batch.state)
-        actionBatch = torch.stack(batch.action)
-        rewardBatch = torch.cat(batch.reward)
+            # Creating a mask of valid states so that invalid states can be filtered out
+            nonFinalMask = torch.tensor([state is not None for state in nextStates], device=self.device, dtype=torch.bool)
 
-        # Calculate and gather Q-Values for each action
-        stateActionQValues = self.policyNet(stateBatch)
+            # Only including valid next states because some might be None because the agent might have crashed
+            nextStates = torch.cat([state for state in nextStates if state is not None]) 
 
-        # Separate Q-values for acceleration and turning
-        accelerationQValues = stateActionQValues[:, :3]
-        turningQValues = stateActionQValues[:, 3:]
+            # Calculate and gather Q-Values for each action
+            stateActionQValues = self.policyNet(states)
 
-        # Get the action for each and shift from -1, 0, 1 -> 0, 1, 2
-        accelerationActions = actionBatch[:, 0] + 1
-        turningActions = actionBatch[:, 1] + 1
+            # Gather the Q-Values for the chosen actions
+            selectedActionQValues = stateActionQValues.gather(1, actions.unsqueeze(1))
 
-        # Gather the Q-Values for the chosen actions
-        selectedAccelerationQValues = accelerationQValues.gather(1, accelerationActions.unsqueeze(1))
-        selectedTurningQValues = turningQValues.gather(1, turningActions.unsqueeze(1))
+            # Calculate target Q-Values for the next state
+            nextStateQValues = torch.zeros(BATCH_SIZE, NETWORK_ACTION_SIZE, device=self.device)
+            with torch.no_grad():
+                nextStateQValues[nonFinalMask] = self.targetNet(nextStates)
+                
+            # Separate the max Q-values for acceleration and turning
+            nextStateQValues = nextStateQValues.max(1).values
 
-        # Calculate target Q-Values for the next state
-        nextStateQValues = torch.zeros(BATCH_SIZE, 6, device=self.device)
-        with torch.no_grad():
-            nextStateQValues[nonFinalMask] = self.targetNet(nonFinalNextStates)
+            # Compute the expected Q-Values for both acceleration and turning
+            expectedQValues = (nextStateQValues * DISCOUNT_FACTOR) + rewards
+
+            # Compute Huber loss for both acceleration and turning
+            huberLoss = nn.SmoothL1Loss()
             
-        # Separate the max Q-values for acceleration and turning
-        nextStateAccelerationValues = nextStateQValues[:, :3].max(1).values
-        nextStateTurningValues = nextStateQValues[:, 3:].max(1).values
+            # Combine both losses
+            loss = huberLoss(selectedActionQValues, expectedQValues.unsqueeze(1))
 
-        # Compute the expected Q-Values for both acceleration and turning
-        expectedAccelerationValues = (nextStateAccelerationValues * GAMMA) + rewardBatch
-        expectedTurningValues = (nextStateTurningValues * GAMMA) + rewardBatch
+            # Backpropogation
+            self.optimizer.zero_grad()
+            loss.backward()
 
-        # Compute Huber loss for both acceleration and turning
-        criterion = nn.SmoothL1Loss()
-
-        accelerationLoss = criterion(selectedAccelerationQValues, expectedAccelerationValues.unsqueeze(1))
-        turningLoss = criterion(selectedTurningQValues, expectedTurningValues.unsqueeze(1))
-        
-        # Combine both losses
-        loss = accelerationLoss + turningLoss
-
-        # Optimize
-        self.optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_value_(self.policyNet.parameters(), 100)
-        self.optimizer.step()
+            torch.nn.utils.clip_grad_value_(self.policyNet.parameters(), 100)
+            self.optimizer.step()
 
     def train(self):
-        steps = 0
+        episode = 1
 
         spawnPoint, spawnAngle = self.game.track.getSpawnPosition()
 
-        while self.episode <= TRAINING_EPISODES:
-            self.game.trainingMenu()
-
-            self.episode += 1
+        while episode <= TRAINING_EPISODES:
             agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.policyNet, self.device, True)
             
             state = agentCar.getState(self.game.track)
             state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
 
+            episodeReward = 0
             for timeStep in range(MAX_TIMESTEPS):
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -142,43 +125,56 @@ class DQNTrainer:
                 if self.game.running == False:
                     return
 
-                steps += 1
+                # Calculating exploration threshold using exponential decay
+                explorationThreshold = EXPLORATION_END + (EXPLORATION_START - EXPLORATION_END) * math.exp(-EXPLORATION_DECAY * episode)
 
-                # Retrieving new transition
-                action, nextState, reward, terminated, truncated = agentCar.update(TRAINING_TIMESTEP, self.game.track, steps)
+                # Retrieving new experience
+                action, nextState, reward, terminated, truncated = agentCar.update(TRAINING_TIMESTEP, self.game.track, explorationThreshold)
+                episodeReward += reward
 
                 # Converting to tensors
-                action = torch.tensor(action, device=self.device, dtype=torch.long)
+                action = torch.tensor([action], device=self.device, dtype=torch.long)
                 reward = torch.tensor([reward], device=self.device)
                 if terminated:
                     nextState = None
                 else:
                     nextState = torch.tensor(nextState, dtype=torch.float32, device=self.device).unsqueeze(0)
 
-                # Store transition in memory
-                self.memory.push(state, action, nextState, reward)
+                # Store experience in memory
+                self.memory.addExperience(state, action, nextState, reward)
 
                 # Move to the next state
                 state = nextState
 
-                # Perform one step of optimisation on the policy network
-                self.optimizeModel()
+                # Update the policy network
+                self.updateModel()
 
                 # Soft update target network
                 self.softUpdateTargetNetwork()
 
                 if terminated or truncated:
-                    print(f"Episode {self.episode} finished after {timeStep} timesteps.")
+                    print(f"Episode {episode} finished after {timeStep} timesteps.")
                     break
             
-            if (self.episode) % VISUALISATION_STEP == 0:
-                self.game.visualizeEpisode()
-    
+            print(episodeReward)
+            self.game.trainingMenu(episode, timeStep, episodeReward, explorationThreshold)
+            
+            if (episode) % VISUALISATION_STEP == 0:
+                exitTraining = self.game.visualizeEpisode()
+
+                if exitTraining:
+                    break
+
+            episode += 1
+                    
+        modelFilePath = self.game.modelSaveMenu()
+        torch.save(self.policyNet.state_dict(), MODELS_PATH + "/" + modelFilePath + ".model")
+
     def softUpdateTargetNetwork(self):
         targetNetStateDict = self.targetNet.state_dict()
         policyNetStateDict = self.policyNet.state_dict()
 
         for key in policyNetStateDict:
-            targetNetStateDict[key] = policyNetStateDict[key] * TAU + targetNetStateDict[key] * (1.0 - TAU)
+            targetNetStateDict[key] = policyNetStateDict[key] * TARGET_UPDATE_STRENGTH + targetNetStateDict[key] * (1.0 - TARGET_UPDATE_STRENGTH)
 
         self.targetNet.load_state_dict(targetNetStateDict)

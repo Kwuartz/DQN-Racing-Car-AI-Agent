@@ -24,6 +24,9 @@ class Track:
         self.finalPointFrequency = 5
 
         self.checkpointOffset = 7
+        
+        self.finishLineThickness = 20
+        self.finishLineColour = (0, 0, 0)
 
         self.checkpointThickness = 10
         self.checkpointColour = (255, 255, 0)
@@ -36,7 +39,6 @@ class Track:
 
         self.lineThickness = 10
         self.lineColour = COLOUR_SCHEME[1]
-        self.connectingLineColour = COLOUR_SCHEME[0]
 
     def addPoint(self, position):
         self.points.append(position)
@@ -129,32 +131,36 @@ class Track:
             for point in curve:
                 pygame.draw.circle(screen, self.trackColour, point, self.trackWidth)
 
-    def drawEditor(self, screen):
+    def drawEditor(self, screen, drawCheckpoints=False):
         curves = self.getCurves()
         self.drawCircles(screen, curves)
 
         for index, curve in enumerate(curves):
             for point in curve:
-                if index == len(curves) - 2:
-                    pygame.draw.lines(screen, self.connectingLineColour, False, curve, self.lineThickness)
-                else:
-                    pygame.draw.lines(screen, self.lineColour, False, curve, self.lineThickness)
+                pygame.draw.lines(screen, self.lineColour, False, curve, self.lineThickness)
         
         for index, point in enumerate(self.points):
             pointLabel = FONT_64.render(f"P{index}", True, self.pointLabelColour)
             
             pygame.draw.circle(screen, self.pointColour, point, self.pointRadius)
             screen.blit(pointLabel, point + self.pointLabelOffset)
-
+        
         checkpoints = self.getCheckpoints(curves)
-        for index, checkpoint in enumerate(checkpoints):
-            checkpointLabel = FONT_64.render(f"C{index}", True, self.pointLabelColour)
-            screen.blit(checkpointLabel, checkpoint[0] + self.pointLabelOffset)
+    
+        if drawCheckpoints:
+            for index, checkpoint in enumerate(checkpoints):
+                checkpointLabel = FONT_64.render(f"C{index}", True, self.pointLabelColour)
+                screen.blit(checkpointLabel, checkpoint[0] + self.pointLabelOffset)
 
-            pygame.draw.line(screen, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
+                pygame.draw.line(screen, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
+
+        # Finish line
+        checkpoint = checkpoints[0]
+        pygame.draw.line(screen, self.finishLineColour, checkpoint[0], checkpoint[1], self.finishLineThickness)
 
     def getSpawnPosition(self):
         if self.curves:
+            # Last point in last curve of the track 
             point1 = pygame.Vector2(self.curves[-1][-2].x, self.curves[-1][-2].y)
             point2 = pygame.Vector2(self.curves[-1][-1].x, self.curves[-1][-1].y)
 
@@ -174,11 +180,9 @@ class Track:
         self.trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT), pygame.SRCALPHA)
         self.drawCircles(self.trackSurface, finalCurves)
 
-        for index, checkpoint in enumerate(self.checkpoints):
-            checkpointLabel = FONT_64.render(f"C{index}", True, self.pointLabelColour)
-            self.trackSurface.blit(checkpointLabel, checkpoint[0] + self.pointLabelOffset)
-
-            pygame.draw.line(self.trackSurface, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
+        # Finish line
+        checkpoint = self.checkpoints[0]
+        pygame.draw.line(self.trackSurface, self.finishLineColour, checkpoint[0], checkpoint[1], self.finishLineThickness)
 
         self.mask = pygame.mask.from_surface(self.trackSurface)
         self.mask.invert()

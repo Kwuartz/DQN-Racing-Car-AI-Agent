@@ -1,14 +1,14 @@
-from config import CAMERA_SCROLL_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, CRASH_REWARD, EPS_START, EPS_END, EPS_DECAY, MAX_IDLE_TIMESTEPS, SPEED_REWARD, IDLE_REWARD, TIMESTEP_REWARD
+from config import CAMERA_SCROLL_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT, CHECKPOINT_REWARD, CRASH_REWARD, MAX_IDLE_TIMESTEPS, SPEED_REWARD, IDLE_REWARD, LAP_REWARD
 
 import pygame
-import numpy as np
+import torch
 import random
 import math
 
 class Car:
     def __init__(self, x, y, direction, image):
-        self.maxSpeed = 500
-        self.acceleration = 200
+        self.maxSpeed = 800
+        self.acceleration = 300
 
         self.friction = 0.5
         self.brakeStrength = 3
@@ -20,7 +20,7 @@ class Car:
         self.x = x
         self.y = y
 
-        self.lap = 1
+        self.lap = 0
         self.checkpointIndex = 0
 
         self.speed = 0
@@ -133,6 +133,8 @@ class Car:
 
             if self.checkpointIndex > len(track.checkpoints) - 1:
                 self.checkpointIndex = 0
+
+            if self.checkpointIndex == 1:
                 self.lap += 1
 
     def getCameraOffset(self, cameraOffset):
@@ -148,18 +150,19 @@ class Car:
         screen.blit(self.rotatedImage, (self.imageRect.x - cameraOffset.x, self.imageRect.y - cameraOffset.y))
 
 class CarAgent(Car):
-    def __init__(self, x, y, direction, image, model, training):
+    def __init__(self, x, y, direction, image, model, device, training):
         super().__init__(x, y, direction, image)
         
+        # Distance sensors that will provide input to the neural network
         self.sensors= [
-            -180,
-            -135,
+            -140,
             -105,
+            -90,
             -75,
-            -45,
-            0,
+            -40,
         ]
 
+        # Max distance of the sensors
         self.maxDistance = 500
 
         self.training = training
@@ -167,51 +170,57 @@ class CarAgent(Car):
             self.idleTimesteps = 0 
 
         self.model = model
+        self.device = device
 
     def getDistances(self, track):
         distances = []
 
         for sensor in self.sensors:
+            # Calculate angle
             sensorAngle = math.radians(self.direction + sensor)
+            # Normalise angle
             directionVector = pygame.Vector2(math.cos(sensorAngle), math.sin(sensorAngle))
 
+            # Default distance will be equal to the max distance checked by the sensor
             sensorDistance = self.maxDistance
-            for distance in range(0, self.maxDistance, 5):
+            # Iterate until position of sensor is out of bounds
+            # Iterating every 10 pixels to increase efficiency while sacrificing accuracy
+            for distance in range(0, self.maxDistance, 10):
                 position = self.imageRect.center + directionVector * distance
 
                 if track.checkCollideAtPoint(position):
                     sensorDistance = distance
                     break
+            
+            # Normalise distance
+            distances.append(sensorDistance / self.maxDistance)
 
-            distances.append(sensorDistance)
-
-        return np.array(distances)
+        return distances
 
     def getState(self, track):
-        # Normalise each input 
-        state = np.array([
-            self.speed / self.acceleration,
-            *self.getDistances(track) / self.maxDistance,
-            self.wheelDirection / 45,
-        ])
+        # Normalise each input
+        state = [
+            self.speed / self.maxSpeed,
+            *self.getDistances(track),
+        ]
 
-        return state
+        return torch.tensor(state, dtype=torch.float32, device=self.device)
 
     def selectAction(self, state):
         # Calculate Q-Values
-        QValues = self.model.forwardPass(state)
+        QValues = self.model(state)
         
-        # Seperate Q-Values for acceleration and turning
-        accelerationQValues = QValues[:3]
-        turningQValues = QValues[3:]
+        # Get the best action
+        selectedAction = QValues.argmax()
 
-        # Get the best action for each and shift from 0, 1, 2 -> -1, 0, 1
-        accelerationAction = accelerationQValues.argmax() - 1
-        turningAction = turningQValues.argmax() - 1
+        # Convert index of best action to acceleration and turning value
+        accelerationAction = (selectedAction // 3) - 1
+        turningAction = (selectedAction % 3) - 1
 
         return accelerationAction, turningAction
 
-    def update(self, deltaTime, track, steps=0):
+    def update(self, deltaTime, track, explorationThreshold=0):
+        # Get current state so it can be fed into the neural network
         state = self.getState(track)
 
         if self.training:
@@ -219,24 +228,24 @@ class CarAgent(Car):
             terminated = False
             truncated = False
 
-            # Value 0 - 1 to be compared to epsilon threshold
+            # Value 0 - 1 to be compared to exploration threshold
             sample = random.random()
 
-            # Calculating epsilon threshold
-            self.epsThreshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps / EPS_DECAY) # DSSAD SASDDSAADS SADA DSSAD DASA GET RID OF self.
-
-            steps += 1
-            if sample > self.epsThreshold:
+            if sample > explorationThreshold:
+                # Select best action
                 accelerationAction, turningAction = self.selectAction(state)
             else:
+                # Selecting random action
                 accelerationAction = random.choice([-1, 0, 1])
                 turningAction = random.choice([-1, 0, 1])
         else:
+            # Select best action
             accelerationAction, turningAction = self.selectAction(state)
-            epsThreshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps / EPS_DECAY)
 
+        # Update car position and direction according to inputs
         self.handleInputs(deltaTime, accelerationAction, turningAction)
         
+        # Check if car has crashed
         collision = self.moveCar(deltaTime, track)
         if collision:
             self.speed = 0
@@ -245,6 +254,7 @@ class CarAgent(Car):
                 reward += CRASH_REWARD
                 terminated = True
 
+        # Check whether car has crossed a checkpoint
         nextCheckpoint = track.checkpoints[self.checkpointIndex]
         if self.collideCheckpoint(nextCheckpoint):
             self.checkpointIndex += 1
@@ -253,20 +263,31 @@ class CarAgent(Car):
                 reward += CHECKPOINT_REWARD
                 self.idleTimesteps = 0
 
+            # Check whether car has completed a lap
             if self.checkpointIndex > len(track.checkpoints) - 1:
                 self.checkpointIndex = 0
+            
+            if self.checkpointIndex == 1:
                 self.lap += 1
-
+                
+                # Truncate the episode if the agent finishes a lap
                 if self.training:
-                    terminated = True
+                    reward += LAP_REWARD
+
+                    if self.lap > 1:
+                        truncated = True
         
         if self.training:
+            # For use in bellman equation
             nextState = self.getState(track)
-            action = accelerationAction, turningAction
 
+            # Convert back to action index
+            action = (accelerationAction + 1) * 3 + (turningAction + 1)
+
+            # Only add speed reward if speed is positive
             reward += max(0, self.speed) * SPEED_REWARD
-            reward += TIMESTEP_REWARD
 
+            # If the agent does not get any reward for a long time then truncate the episode and punish it
             self.idleTimesteps += 1
 
             if self.idleTimesteps >= MAX_IDLE_TIMESTEPS:
