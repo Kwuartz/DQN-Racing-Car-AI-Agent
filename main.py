@@ -5,7 +5,7 @@ import os
 
 pygame.init()
 
-from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, TRACK_WIDTH, TRACK_HEIGHT, COLOUR_SCHEME, FONT_64, MODELS_PATH, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, NETWORK_INPUT_SIZE, NETWORK_ACTION_SIZE, TRACKS_PATH, TOTAL_LAPS, VISUALISATION_STEP, BACKGROUND_COLOUR, BLUE_CAR_IMAGE, RED_CAR_IMAGE, FONT_16, FONT_32, TRAINING_EPISODES, ASPECT_RATIO, MAX_TIMESTEPS, TRAINING_TIMESTEP, SPEED_REWARD
+from config import FPS, SCREEN_WIDTH, SCREEN_HEIGHT, ASPECT_RATIO, TRACK_WIDTH, TRACK_HEIGHT, COUNTDOWN_DURATION, COLOUR_SCHEME, BACKGROUND_COLOUR, BLUE_CAR_IMAGE, RED_CAR_IMAGE, BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, MODELS_PATH, NETWORK_INPUT_SIZE, NETWORK_ACTION_SIZE, TRACKS_PATH, MAX_VISUALISATION_TIME, TOTAL_LAPS, VISUALISATION_STEP, TRAINING_EPISODES, FONT_16, FONT_32, FONT_64, FONT_128
 from gui import Container, TextLabel, Button, TextInputBox, Minimap
 from cars import Car, CarAgent
 from model import DQNTrainer, NeuralNetwork
@@ -32,10 +32,10 @@ class Game:
 
     def displayMainMenu(self):
         #Initialising menu buttons
-        playButton = Button(0.1, 0.2, 0.2, 0.1, "Play", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1],COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        trackButton = Button(0.1, 0.35, 0.2, 0.1, "Create Track", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        trainButton = Button(0.1, 0.5, 0.2, 0.1, "Train an Agent", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        exitButton = Button(0.1, 0.65, 0.2, 0.1, "Exit", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        playButton = Button(0.1, 0.2, 0.2, 0.1, "Play", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1],COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        trackButton = Button(0.1, 0.35, 0.2, 0.1, "Create Track", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        trainButton = Button(0.1, 0.5, 0.2, 0.1, "Train an Agent", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        exitButton = Button(0.1, 0.65, 0.2, 0.1, "Exit", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
 
         buttons = [playButton, trackButton, trainButton, exitButton]
 
@@ -83,9 +83,10 @@ class Game:
             # Getting time between frames
             self.deltaTime = self.clock.tick(FPS) / 1000
     
-    def selectionMenu(self, options):
-        backButton = Button(0.02, 0.88, 0.1, 0.1, "Back", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        selectButton = Button(0.88, 0.88, 0.1, 0.1, "Select", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+    def selectionMenu(self, options, title):
+        titleLabel = TextLabel(0.25, 0, 0.5, 0.05, title, FONT_32, COLOUR_SCHEME[0])
+        backButton = Button(0.02, 0.88, 0.1, 0.1, "Back", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        selectButton = Button(0.88, 0.88, 0.1, 0.1, "Select", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
 
         buttons = [backButton, selectButton]
 
@@ -102,7 +103,7 @@ class Game:
         optionButtons = []
 
         for option in options:
-            optionButton = Button(0, 0, buttonSize.x, buttonSize.y, option, FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
+            optionButton = Button(0, 0, buttonSize.x, buttonSize.y, option, FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
             optionButtons.append(optionButton)
 
         selectedOption = 0
@@ -169,6 +170,7 @@ class Game:
             # Drawing buttons and scroll container
             self.screen.fill((8, 132, 28))
 
+            titleLabel.draw(self.screen)
             optionButtonsContainer.draw(self.screen)
 
             for button in buttons:
@@ -192,7 +194,7 @@ class Game:
             strippedPath = modelPath[:-6]
             models.append(strippedPath)
 
-        selectedModel = self.selectionMenu(models)
+        selectedModel = self.selectionMenu(models, "Select Model:")
 
         if selectedModel != None:
             selectedModelPath = modelPaths[selectedModel]
@@ -219,7 +221,7 @@ class Game:
             strippedPath = trackPath[:-5]
             tracks.append(strippedPath)
 
-        selectedTrack = self.selectionMenu(tracks)
+        selectedTrack = self.selectionMenu(tracks, "Select Track:")
         
         if selectedTrack != None:
             if allowNewTrack:
@@ -241,10 +243,10 @@ class Game:
         trackName = self.track.getFilePath()
         editingTrackName = False
 
-        backButton = Button(0.02, 0.88, 0.1, 0.1, "Back", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        saveButton = Button(0.88, 0.88, 0.1, 0.1, "Save", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        backButton = Button(0.02, 0.88, 0.1, 0.1, "Back", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        saveButton = Button(0.88, 0.88, 0.1, 0.1, "Save", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
         trackNameLabel = TextLabel(0.88, 0.71, 0.1, 0.05, "TRACK NAME:", FONT_32, COLOUR_SCHEME[0])
-        trackNameBox = TextInputBox(0.88, 0.76, 0.1, 0.1, trackName, FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
+        trackNameBox = TextInputBox(0.88, 0.76, 0.1, 0.1, trackName, FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS, COLOUR_SCHEME[2])
 
         elements = [backButton, saveButton, trackNameBox]
 
@@ -355,14 +357,6 @@ class Game:
             self.deltaTime = self.clock.tick(FPS) / 1000
 
     def gameLoop(self, model):
-        minimapSize = pygame.Vector2(0.2, 0.2)
-        minimap = Minimap(0, 0, minimapSize.x, minimapSize.y, self.track, COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
-        
-        containerSize = pygame.Vector2(0.05, 0.05)
-        containerPosition = minimapSize - containerSize
-        gameInfoContainer = Container(containerPosition.x, containerPosition.y, containerSize.x, containerSize.y, COLOUR_SCHEME[2], COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
-        lapLabel = TextLabel(containerPosition.x, containerPosition.x, containerSize.x, containerSize.y, f"Lap 0/{TOTAL_LAPS}", FONT_16, COLOUR_SCHEME[0])
-
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
 
         playerCar = Car(spawnPoint.x, spawnPoint.y, spawnAngle, BLUE_CAR_IMAGE)
@@ -372,39 +366,65 @@ class Game:
         cameraOffset = pygame.Vector2(0, 0)
 
         self.resetDeltaTime()
+        stopWatchTime = 0
 
+        minimapSize = pygame.Vector2(0.2, 0.2)
+        minimap = Minimap(0, 0, minimapSize.x, minimapSize.y, self.track, COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
+        
+        lapContainerSize = pygame.Vector2(0.05, 0.05)
+        lapContainerPosition = minimapSize - lapContainerSize
+        lapContainer = Container(lapContainerPosition.x, lapContainerPosition.y, lapContainerSize.x, lapContainerSize.y, COLOUR_SCHEME[2], COLOUR_SCHEME[1], BUTTON_BORDER_THICKNESS)
+        lapLabel = TextLabel(lapContainerPosition.x, lapContainerPosition.x, lapContainerSize.x, lapContainerSize.y, f"Lap 0/{TOTAL_LAPS}", FONT_16, COLOUR_SCHEME[0])
+        stopWatchLabel = TextLabel(minimapSize.x, 0, 0.05, 0.05, self.formatStopWatch(stopWatchTime), FONT_32, COLOUR_SCHEME[1])
+        countDownLabel = TextLabel(0, 0, 1, 1, self.formatStopWatch(stopWatchTime), FONT_128, COLOUR_SCHEME[0])
+
+        continueButton = Button(0.88, 0.88, 0.1, 0.1, "Continue", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+
+        countdownCompleted = False
         gameRunning = True
-        while self.running and gameRunning:
+        returnToMenu = False
+
+        while self.running and not returnToMenu:
+            if not gameRunning:
+                continueButtonHovered = False
+                if continueButton.updateHovered(pygame.mouse.get_pos()):
+                    continueButtonHovered = True
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
+                
+                if not gameRunning:
+                    if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and continueButtonHovered:
+                        returnToMenu = True
 
-            acceleration = 0
-            turnDirection = 0
+            if gameRunning and countdownCompleted:
+                acceleration = 0
+                turnDirection = 0
 
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_w] or keys[pygame.K_UP]:
-                acceleration += 1
-            if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-                acceleration -= 1
-            if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-                turnDirection += 1
-            if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-                turnDirection -= 1
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_w] or keys[pygame.K_UP]:
+                    acceleration += 1
+                if keys[pygame.K_s] or keys[pygame.K_DOWN]:
+                    acceleration -= 1
+                if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+                    turnDirection += 1
+                if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+                    turnDirection -= 1
 
-            playerCar.update(self.deltaTime, acceleration, turnDirection, self.track)
-            agentCar.update(self.deltaTime, self.track)
+                playerCar.update(self.deltaTime, acceleration, turnDirection, self.track)
+                agentCar.update(self.deltaTime, self.track)
+                
+                # Check if game over
+                newLap = max(playerCar.lap, agentCar.lap)
+                if newLap > TOTAL_LAPS:
+                    gameRunning = False
+                elif lap != newLap:
+                    lap = newLap
+                    lapLabel.updateText(f"Lap {lap}/{TOTAL_LAPS}")
 
-            # Check if game over
-            newLap = max(playerCar.lap, agentCar.lap)
-            if lap > TOTAL_LAPS:
-                gameRunning = False
-            elif lap != newLap:
-                lap = newLap
-                lapLabel.updateText(f"Lap {lap}/{TOTAL_LAPS}")
+            cameraOffset = playerCar.getCameraOffset(cameraOffset, self.deltaTime)
 
-            cameraOffset = playerCar.getCameraOffset(cameraOffset)
-            
             self.screen.fill(BACKGROUND_COLOUR)
             self.track.draw(self.screen, cameraOffset)
 
@@ -413,12 +433,32 @@ class Game:
 
             minimap.draw(self.screen, playerCar, agentCar)
 
-            gameInfoContainer.draw(self.screen)
+            lapContainer.draw(self.screen)
             lapLabel.draw(self.screen)
+
+            if countdownCompleted:
+                stopWatchLabel.updateText(self.formatStopWatch(stopWatchTime))
+                stopWatchLabel.draw(self.screen)
+            else:
+                countDownRemaining = math.ceil(COUNTDOWN_DURATION - stopWatchTime)
+
+                if countDownRemaining < 0:
+                    countdownCompleted = True
+                    stopWatchTime = 0
+                elif countDownRemaining == 0:
+                    countDownLabel.updateText("GO!")
+                else:
+                    countDownLabel.updateText(str(countDownRemaining))
+
+                countDownLabel.draw(self.screen)
+
+            if not gameRunning:
+                continueButton.draw(self.screen)
 
             pygame.display.flip()
 
             self.deltaTime = self.clock.tick(FPS) / 1000
+            stopWatchTime += self.deltaTime
 
     def trainingMenu(self, episode, steps, reward, explorationThreshold):
         reward = round(reward, 2)
@@ -433,16 +473,20 @@ class Game:
         outerBar = Container(barPosition.x, barPosition.y, barSize.x, barSize.y, COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
         innerBar = Container(barPosition.x + barPadding.x, barPosition.y + barPadding.y, (barSize.x - barPadding.x * 2) * percentage, barSize.y - barPadding.y * 2, COLOUR_SCHEME[0])
 
-        episodeLabel = TextLabel(barPosition.x, barPosition.y - barSize.y, barSize.x, barSize.y, f"Episode {episode} / {TRAINING_EPISODES}", FONT_32, COLOUR_SCHEME[0])
-        stepsLabel = TextLabel(barPosition.x, 0.5, 0.25, barSize.y, f"Steps: {steps}", FONT_32, COLOUR_SCHEME[0])
-        rewardLabel = TextLabel(barPosition.x, 0.7, 0.25, barSize.y, f"Reward: {reward}", FONT_32, COLOUR_SCHEME[0])
-        explorationLabel = TextLabel(0.5, 0.5, 0.25, barSize.y, f"Exploration Rate: {explorationThreshold}", FONT_32, COLOUR_SCHEME[0])
-        nextVisualisationLabel = TextLabel(0.5, 0.7, 0.25, barSize.y, f"Next Visualisation: {nextVisualisation}", FONT_32, COLOUR_SCHEME[0])
+        statsContainer = Container(barPosition.x, 0.41, 0.5, 0.4, COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS)
+
+        episodeLabel = TextLabel(barPosition.x, barPosition.y - barSize.y, barSize.x, barSize.y, f"Episode {episode} / {TRAINING_EPISODES}", FONT_64, COLOUR_SCHEME[0])
+        stepsLabel = TextLabel(barPosition.x, 0.45, 0.25, barSize.y, f"Steps: {steps}", FONT_32, COLOUR_SCHEME[0])
+        rewardLabel = TextLabel(barPosition.x, 0.65, 0.25, barSize.y, f"Reward: {reward}", FONT_32, COLOUR_SCHEME[0])
+        explorationLabel = TextLabel(0.5, 0.45, 0.25, barSize.y, f"Exploration Rate: {explorationThreshold}", FONT_32, COLOUR_SCHEME[0])
+        nextVisualisationLabel = TextLabel(0.5, 0.65, 0.25, barSize.y, f"Next Visualisation: {nextVisualisation}", FONT_32, COLOUR_SCHEME[0])
 
         self.screen.fill(BACKGROUND_COLOUR)
             
         outerBar.draw(self.screen)
         innerBar.draw(self.screen)
+
+        statsContainer.draw(self.screen)
 
         episodeLabel.draw(self.screen)
         stepsLabel.draw(self.screen)
@@ -506,19 +550,30 @@ class Game:
 
             self.deltaTime = self.clock.tick(FPS) / 1000
 
-    def visualizeEpisode(self):
-        skipButton = Button(0.88, 0.88, 0.1, 0.1, "Skip", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
-        endTrainingButton = Button(0.76, 0.88, 0.1, 0.1, "End Training", FONT_16, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+    def formatStopWatch(self, stopWatchTime):
+        # Modulo 60 to remove minutes
+        seconds = stopWatchTime % 60
 
-        elements = [skipButton, endTrainingButton]
-        
+        # Floor division by 60 to remove seconds
+        minutes = int(stopWatchTime // 60)
+
+        if minutes > 0:
+            return f"{minutes:02d}:{seconds:05.2f}" # Pad seconds and minutes with a 0 if only one digit and round to 2 decimal places for example: 1:5.323 because 01:05.32
+        else:
+            return f"{seconds:05.2f}"
+
+    def visualizeEpisode(self):        
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
         agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.trainer.policyNet, self.device, False)
 
         self.resetDeltaTime()
+        stopWatchTime = 0
 
-        timeStep = 0
-        maxTimeSteps = (MAX_TIMESTEPS / TRAINING_TIMESTEP)
+        skipButton = Button(0.88, 0.88, 0.1, 0.1, "Skip", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        endTrainingButton = Button(0.76, 0.88, 0.1, 0.1, "End Training", FONT_32, COLOUR_SCHEME[0], COLOUR_SCHEME[1], COLOUR_SCHEME[0], BUTTON_BORDER_THICKNESS, BUTTON_HOVER_THICKNESS)
+        stopWatchLabel = TextLabel(0, 0, 0.05, 0.05, self.formatStopWatch(stopWatchTime), FONT_32, COLOUR_SCHEME[1])
+
+        elements = [skipButton, endTrainingButton]
 
         visualisationRunning = True
         while visualisationRunning and self.running:
@@ -540,9 +595,9 @@ class Game:
             
             # Select best action
             crashed = agentCar.update(self.deltaTime, self.track)
-            timeStep += 1
 
-            if crashed or agentCar.lap > 1 or timeStep >= maxTimeSteps:
+            # End visualisation
+            if crashed or agentCar.lap > 1 or stopWatchTime > MAX_VISUALISATION_TIME:
                 visualisationRunning = False
 
             trackSurface = pygame.Surface((TRACK_WIDTH, TRACK_HEIGHT), pygame.SRCALPHA)
@@ -557,9 +612,13 @@ class Game:
             for element in elements:
                 element.draw(self.screen)
 
+            stopWatchLabel.updateText(self.formatStopWatch(stopWatchTime))
+            stopWatchLabel.draw(self.screen)
+
             pygame.display.flip()
 
             self.deltaTime = self.clock.tick(FPS) / 1000
+            stopWatchTime += self.deltaTime
 
         return False
 

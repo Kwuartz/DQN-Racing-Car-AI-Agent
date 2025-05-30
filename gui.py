@@ -43,8 +43,8 @@ class Minimap(GuiElement):
         self.surface.blit(self.trackSurface, (0, 0))
         
         pygame.draw.rect(self.surface, self.borderColour, self.rect, self.borderThickness)
-        pygame.draw.circle(self.surface, self.playerColour, (player.x * self.scale, player.y * self.scale), self.dotSize)
-        pygame.draw.circle(self.surface, self.agentColour, (agent.x * self.scale, agent.y * self.scale), self.dotSize)
+        pygame.draw.circle(self.surface, self.playerColour, (player.rect.center[0] * self.scale, player.rect.center[1] * self.scale), self.dotSize)
+        pygame.draw.circle(self.surface, self.agentColour, (agent.rect.center[0] * self.scale, agent.rect.center[1] * self.scale), self.dotSize)
 
         screen.blit(self.surface, self.rect)
 

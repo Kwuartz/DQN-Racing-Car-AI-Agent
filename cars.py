@@ -17,9 +17,6 @@ class Car:
         self.steerSpeed = 90
         self.steerCenterSpeed = 90
 
-        self.x = x
-        self.y = y
-
         self.lap = 0
         self.checkpointIndex = 0
 
@@ -32,9 +29,14 @@ class Car:
         self.mask = pygame.mask.from_surface(self.image)
         self.maskOffset = (0, 0)
 
+        # Start centered on spawn point instead of the top left of the car being on the spawn point
         self.rect = image.get_rect()
-        self.imageRect = self.rotatedImage.get_rect()
         self.rect.center = (x, y)
+        
+        self.x = self.rect.x
+        self.y = self.rect.y
+
+        self.imageRect = self.rotatedImage.get_rect()
         self.imageRect.center = self.rect.center
 
     def handleInputs(self, deltaTime, acceleration, steerDirection):
@@ -137,12 +139,12 @@ class Car:
             if self.checkpointIndex == 1:
                 self.lap += 1
 
-    def getCameraOffset(self, cameraOffset):
+    def getCameraOffset(self, cameraOffset, deltaTime):
         xTrueOffset = self.x - SCREEN_WIDTH / 2
         yTrueOffset = self.y - SCREEN_HEIGHT / 2
 
-        xOffset = (xTrueOffset - cameraOffset[0]) * CAMERA_SCROLL_SPEED
-        yOffset = (yTrueOffset - cameraOffset[1]) * CAMERA_SCROLL_SPEED
+        xOffset = (xTrueOffset - cameraOffset[0]) * CAMERA_SCROLL_SPEED * deltaTime
+        yOffset = (yTrueOffset - cameraOffset[1]) * CAMERA_SCROLL_SPEED * deltaTime
 
         return cameraOffset + pygame.Vector2(xOffset, yOffset)
 
@@ -204,7 +206,7 @@ class CarAgent(Car):
             *self.getDistances(track),
         ]
 
-        return torch.tensor(state, dtype=torch.float32, device=self.device)
+        return torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
 
     def selectAction(self, state):
         # Calculate Q-Values
@@ -225,8 +227,8 @@ class CarAgent(Car):
 
         if self.training:
             reward = 0
-            terminated = False
-            truncated = False
+            crashed = False
+            episodeTruncated = False
 
             # Value 0 - 1 to be compared to exploration threshold
             sample = random.random()
@@ -252,7 +254,7 @@ class CarAgent(Car):
 
             if self.training:
                 reward += CRASH_REWARD
-                terminated = True
+                crashed = True
 
         # Check whether car has crossed a checkpoint
         nextCheckpoint = track.checkpoints[self.checkpointIndex]
@@ -275,11 +277,14 @@ class CarAgent(Car):
                     reward += LAP_REWARD
 
                     if self.lap > 1:
-                        truncated = True
+                        episodeTruncated = True
         
         if self.training:
             # For use in bellman equation
-            nextState = self.getState(track)
+            if crashed:
+                nextState = None
+            else:
+                nextState = self.getState(track)
 
             # Convert back to action index
             action = (accelerationAction + 1) * 3 + (turningAction + 1)
@@ -291,10 +296,10 @@ class CarAgent(Car):
             self.idleTimesteps += 1
 
             if self.idleTimesteps >= MAX_IDLE_TIMESTEPS:
-                truncated = True
+                episodeTruncated = True
                 reward += IDLE_REWARD
 
-            return action, nextState, reward, terminated, truncated
+            return action, nextState, reward, crashed or episodeTruncated
 
         return collision
             

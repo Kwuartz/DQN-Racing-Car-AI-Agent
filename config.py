@@ -18,13 +18,14 @@ MODELS_PATH = ASSETS_PATH +  "/Models"
 FONT_16 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 16)
 FONT_32 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 32)
 FONT_64 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 64)
+FONT_128 = pygame.font.Font(f"{ASSETS_PATH}/Fonts/font.otf", 128)
 
 # Loading car images
 BLUE_CAR_IMAGE = pygame.transform.scale(pygame.image.load(f"{ASSETS_PATH}/Cars/BlueCar.png"), (CAR_WIDTH, CAR_HEIGHT))
 RED_CAR_IMAGE = pygame.transform.scale(pygame.image.load(f"{ASSETS_PATH}/Cars/RedCar.png"), (CAR_WIDTH, CAR_HEIGHT))
 
 FPS = 60
-CAMERA_SCROLL_SPEED = 0.1
+CAMERA_SCROLL_SPEED = 6
 
 COLOUR_SCHEME = [
     (255, 255, 255),
@@ -43,7 +44,8 @@ BUTTON_HOVER_THICKNESS = 7
 DEFAULT_TRACK_NAME = "track"
 
 CHECKPOINT_FREQUENCY = 5
-TOTAL_LAPS = 2
+TOTAL_LAPS = 3
+COUNTDOWN_DURATION = 5
 
 NETWORK_INPUT_SIZE = 6
 NETWORK_ACTION_SIZE = 9
@@ -60,7 +62,8 @@ CRASH_REWARD = -0.5
 IDLE_REWARD = -1
 
 TRAINING_EPISODES = 1000
-VISUALISATION_STEP = 100
+VISUALISATION_STEP = 10
+MAX_VISUALISATION_TIME = 60
 
 BATCH_SIZE = 128
 DISCOUNT_FACTOR = 0.99

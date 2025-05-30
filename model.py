@@ -114,7 +114,6 @@ class DQNTrainer:
             agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.policyNet, self.device, True)
             
             state = agentCar.getState(self.game.track)
-            state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
 
             episodeReward = 0
             for timeStep in range(MAX_TIMESTEPS):
@@ -129,16 +128,12 @@ class DQNTrainer:
                 explorationThreshold = EXPLORATION_END + (EXPLORATION_START - EXPLORATION_END) * math.exp(-EXPLORATION_DECAY * episode)
 
                 # Retrieving new experience
-                action, nextState, reward, terminated, truncated = agentCar.update(TRAINING_TIMESTEP, self.game.track, explorationThreshold)
+                action, nextState, reward, episodeEnded = agentCar.update(TRAINING_TIMESTEP, self.game.track, explorationThreshold)
                 episodeReward += reward
 
                 # Converting to tensors
                 action = torch.tensor([action], device=self.device, dtype=torch.long)
                 reward = torch.tensor([reward], device=self.device)
-                if terminated:
-                    nextState = None
-                else:
-                    nextState = torch.tensor(nextState, dtype=torch.float32, device=self.device).unsqueeze(0)
 
                 # Store experience in memory
                 self.memory.addExperience(state, action, nextState, reward)
@@ -152,11 +147,9 @@ class DQNTrainer:
                 # Soft update target network
                 self.softUpdateTargetNetwork()
 
-                if terminated or truncated:
-                    print(f"Episode {episode} finished after {timeStep} timesteps.")
+                if episodeEnded:
                     break
-            
-            print(episodeReward)
+
             self.game.trainingMenu(episode, timeStep, episodeReward, explorationThreshold)
             
             if (episode) % VISUALISATION_STEP == 0:
@@ -168,7 +161,8 @@ class DQNTrainer:
             episode += 1
                     
         modelFilePath = self.game.modelSaveMenu()
-        torch.save(self.policyNet.state_dict(), MODELS_PATH + "/" + modelFilePath + ".model")
+        if modelFilePath:
+            torch.save(self.policyNet.state_dict(), MODELS_PATH + "/" + modelFilePath + ".model")
 
     def softUpdateTargetNetwork(self):
         targetNetStateDict = self.targetNet.state_dict()
