@@ -6,7 +6,7 @@ import random
 import math
 
 class Car:
-    def __init__(self, x, y, direction, image):
+    def __init__(self, x, y, direction, image, track):
         self.maxSpeed = 800
         self.acceleration = 300
 
@@ -23,6 +23,8 @@ class Car:
         self.speed = 0
         self.direction = direction + 90
         self.wheelDirection = self.direction
+
+        self.track = track
 
         self.image = image
         self.rotatedImage = pygame.transform.rotate(self.image, -self.direction)
@@ -73,7 +75,7 @@ class Car:
                 self.wheelDirection = min(
                     self.wheelDirection + self.steerCenterSpeed * deltaTime, 0)
 
-    def moveCar(self, deltaTime, track):
+    def moveCar(self, deltaTime):
         if self.speed != 0 and self.wheelDirection != 0:
             turningRadius = ((self.rect.height * 3.5) + (self.rect.height * 1.5) * (self.speed / self.maxSpeed)) / math.tan(math.radians(self.wheelDirection))
             angularVelocity = self.speed / turningRadius
@@ -85,7 +87,7 @@ class Car:
             newImageRect = newImage.get_rect()
             newImageRect.center = self.rect.center
 
-            overlap = track.getOverlap(self.imageRect.x, self.imageRect.y, newMask)
+            overlap = self.track.getOverlap(self.imageRect.x, self.imageRect.y, newMask)
             if not overlap:
                 self.rotatedImage = newImage
                 self.imageRect = newImageRect
@@ -98,13 +100,13 @@ class Car:
         yChange = self.speed * \
             math.cos(math.radians(self.direction)) * deltaTime
 
-        overlapX = track.getOverlap(self.imageRect.x + xChange, self.imageRect.y, self.mask)
+        overlapX = self.track.getOverlap(self.imageRect.x + xChange, self.imageRect.y, self.mask)
         if not overlapX:
             self.x += xChange
             self.rect.x = self.x
             self.imageRect.center = self.rect.center
 
-        overlapY = track.getOverlap(self.imageRect.x, self.imageRect.y - yChange, self.mask)
+        overlapY = self.track.getOverlap(self.imageRect.x, self.imageRect.y - yChange, self.mask)
         if not overlapY:
             self.y -= yChange
             self.rect.y = self.y
@@ -121,19 +123,18 @@ class Car:
 
         return False
 
-    def update(self, deltaTime, acceleration, steerDirection, track):
-        self.track = track
+    def update(self, deltaTime, acceleration, steerDirection):
         self.handleInputs(deltaTime, acceleration, steerDirection)
         
-        collision = self.moveCar(deltaTime, track)
+        collision = self.moveCar(deltaTime)
         if collision:
             self.speed = 0
 
-        nextCheckpoint = track.checkpoints[self.checkpointIndex]
+        nextCheckpoint = self.track.checkpoints[self.checkpointIndex]
         if self.collideCheckpoint(nextCheckpoint):
             self.checkpointIndex += 1
 
-            if self.checkpointIndex > len(track.checkpoints) - 1:
+            if self.checkpointIndex > len(self.track.checkpoints) - 1:
                 self.checkpointIndex = 0
 
             if self.checkpointIndex == 1:
@@ -152,8 +153,8 @@ class Car:
         screen.blit(self.rotatedImage, (self.imageRect.x - cameraOffset.x, self.imageRect.y - cameraOffset.y))
 
 class CarAgent(Car):
-    def __init__(self, x, y, direction, image, model, device, training):
-        super().__init__(x, y, direction, image)
+    def __init__(self, x, y, direction, image, track, model, device, training):
+        super().__init__(x, y, direction, image, track)
         
         # Distance sensors that will provide input to the neural network
         self.sensors= [
@@ -174,7 +175,7 @@ class CarAgent(Car):
         self.model = model
         self.device = device
 
-    def getDistances(self, track):
+    def getDistances(self):
         distances = []
 
         for sensor in self.sensors:
@@ -190,7 +191,7 @@ class CarAgent(Car):
             for distance in range(0, self.maxDistance, 10):
                 position = self.imageRect.center + directionVector * distance
 
-                if track.checkCollideAtPoint(position):
+                if self.track.checkCollideAtPoint(position):
                     sensorDistance = distance
                     break
             
@@ -199,11 +200,11 @@ class CarAgent(Car):
 
         return distances
 
-    def getState(self, track):
+    def getState(self):
         # Normalise each input
         state = [
             self.speed / self.maxSpeed,
-            *self.getDistances(track),
+            *self.getDistances(),
         ]
 
         return torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
@@ -221,9 +222,9 @@ class CarAgent(Car):
 
         return accelerationAction, turningAction
 
-    def update(self, deltaTime, track, explorationThreshold=0):
+    def update(self, deltaTime, explorationThreshold=0):
         # Get current state so it can be fed into the neural network
-        state = self.getState(track)
+        state = self.getState()
 
         if self.training:
             reward = 0
@@ -248,7 +249,7 @@ class CarAgent(Car):
         self.handleInputs(deltaTime, accelerationAction, turningAction)
         
         # Check if car has crashed
-        collision = self.moveCar(deltaTime, track)
+        collision = self.moveCar(deltaTime)
         if collision:
             self.speed = 0
 
@@ -257,7 +258,7 @@ class CarAgent(Car):
                 crashed = True
 
         # Check whether car has crossed a checkpoint
-        nextCheckpoint = track.checkpoints[self.checkpointIndex]
+        nextCheckpoint = self.track.checkpoints[self.checkpointIndex]
         if self.collideCheckpoint(nextCheckpoint):
             self.checkpointIndex += 1
 
@@ -266,7 +267,7 @@ class CarAgent(Car):
                 self.idleTimesteps = 0
 
             # Check whether car has completed a lap
-            if self.checkpointIndex > len(track.checkpoints) - 1:
+            if self.checkpointIndex > len(self.track.checkpoints) - 1:
                 self.checkpointIndex = 0
             
             if self.checkpointIndex == 1:
@@ -284,7 +285,7 @@ class CarAgent(Car):
             if crashed:
                 nextState = None
             else:
-                nextState = self.getState(track)
+                nextState = self.getState()
 
             # Convert back to action index
             action = (accelerationAction + 1) * 3 + (turningAction + 1)

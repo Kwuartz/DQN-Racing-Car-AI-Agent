@@ -111,9 +111,9 @@ class DQNTrainer:
         spawnPoint, spawnAngle = self.game.track.getSpawnPosition()
 
         while episode <= TRAINING_EPISODES:
-            agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.policyNet, self.device, True)
+            agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.game.track, self.policyNet, self.device, True)
             
-            state = agentCar.getState(self.game.track)
+            state = agentCar.getState()
 
             episodeReward = 0
             for timeStep in range(MAX_TIMESTEPS):
@@ -128,7 +128,7 @@ class DQNTrainer:
                 explorationThreshold = EXPLORATION_END + (EXPLORATION_START - EXPLORATION_END) * math.exp(-EXPLORATION_DECAY * episode)
 
                 # Retrieving new experience
-                action, nextState, reward, episodeEnded = agentCar.update(TRAINING_TIMESTEP, self.game.track, explorationThreshold)
+                action, nextState, reward, episodeEnded = agentCar.update(TRAINING_TIMESTEP, explorationThreshold)
                 episodeReward += reward
 
                 # Converting to tensors

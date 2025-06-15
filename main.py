@@ -359,8 +359,8 @@ class Game:
     def gameLoop(self, model):
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
 
-        playerCar = Car(spawnPoint.x, spawnPoint.y, spawnAngle, BLUE_CAR_IMAGE)
-        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, model, self.device, False)
+        playerCar = Car(spawnPoint.x, spawnPoint.y, spawnAngle, BLUE_CAR_IMAGE, self.track)
+        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.track, model, self.device, False)
 
         lap = 0
         cameraOffset = pygame.Vector2(0, 0)
@@ -412,8 +412,8 @@ class Game:
                 if keys[pygame.K_a] or keys[pygame.K_LEFT]:
                     turnDirection -= 1
 
-                playerCar.update(self.deltaTime, acceleration, turnDirection, self.track)
-                agentCar.update(self.deltaTime, self.track)
+                playerCar.update(self.deltaTime, acceleration, turnDirection)
+                agentCar.update(self.deltaTime)
                 
                 # Check if game over
                 newLap = max(playerCar.lap, agentCar.lap)
@@ -458,7 +458,9 @@ class Game:
             pygame.display.flip()
 
             self.deltaTime = self.clock.tick(FPS) / 1000
-            stopWatchTime += self.deltaTime
+
+            if gameRunning:
+                stopWatchTime += self.deltaTime
 
     def trainingMenu(self, episode, steps, reward, explorationThreshold):
         reward = round(reward, 2)
@@ -564,7 +566,7 @@ class Game:
 
     def visualizeEpisode(self):        
         spawnPoint, spawnAngle = self.track.getSpawnPosition()
-        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.trainer.policyNet, self.device, False)
+        agentCar = CarAgent(spawnPoint.x, spawnPoint.y, spawnAngle, RED_CAR_IMAGE, self.track, self.trainer.policyNet, self.device, False)
 
         self.resetDeltaTime()
         stopWatchTime = 0
@@ -594,7 +596,7 @@ class Game:
                                 return True
             
             # Select best action
-            crashed = agentCar.update(self.deltaTime, self.track)
+            crashed = agentCar.update(self.deltaTime)
 
             # End visualisation
             if crashed or agentCar.lap > 1 or stopWatchTime > MAX_VISUALISATION_TIME:

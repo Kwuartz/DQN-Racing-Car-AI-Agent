@@ -155,8 +155,9 @@ class Track:
                 pygame.draw.line(screen, self.checkpointColour, checkpoint[0], checkpoint[1], self.checkpointThickness)
 
         # Finish line
-        checkpoint = checkpoints[0]
-        pygame.draw.line(screen, self.finishLineColour, checkpoint[0], checkpoint[1], self.finishLineThickness)
+        if len(checkpoints) > 0:
+            checkpoint = checkpoints[0]
+            pygame.draw.line(screen, self.finishLineColour, checkpoint[0], checkpoint[1], self.finishLineThickness)
 
     def getSpawnPosition(self):
         if self.curves:
