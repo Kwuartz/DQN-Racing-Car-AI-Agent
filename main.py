@@ -150,10 +150,10 @@ class Game:
                             updateButtons = True
                     elif event.key == pygame.K_s or event.key == pygame.K_DOWN:
                         optionButtons[selectedOption].setSelected(False)
-                        selectedOption = min(selectedOption + 1, len(OptionButtons) - 1)
+                        selectedOption = min(selectedOption + 1, len(optionButtons) - 1)
                         optionButtons[selectedOption].setSelected(True)
 
-                        if selectedOption >= scrollIndex + OptionsPerPage:
+                        if selectedOption >= scrollIndex + optionsPerPage:
                             scrollIndex += 1  
                             updateButtons = True                  
             
@@ -228,8 +228,9 @@ class Game:
                 selectedTrack -= 1
 
             selectedTrackPath = trackPaths[selectedTrack]
+            print(selectedTrackPath)
 
-            if allowNewTrack and selectedTrack == 0:
+            if allowNewTrack and selectedTrack == -1:
                 self.track = Track()
             else:
                 self.track = Track(selectedTrackPath[:-5])
